@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+:root {
+  --primary: 79 70 229;          /* Indigo 600 (#4f46e5) */
+  --primary-hover: 67 56 202;    /* Indigo 700 */
+  --secondary: 14 165 233;       /* Sky 500 */
+  --background: 248 250 252;     /* Slate 50 */
+  --card: 255 255 255;
+  --text: 15 23 42;              /* Slate 900 */
+  --text-muted: 100 116 139;     /* Slate 500 */
+  --border: 226 232 240;         /* Slate 200 */
+}
+
+[data-theme='dark'] {
+  --primary: 99 102 241;         /* Indigo 500 (#6366f1) */
+  --primary-hover: 79 70 229;
+  --secondary: 56 189 248;       /* Sky 400 */
+  --background: 15 23 42;        /* Slate 900 */
+  --card: 30 41 59;              /* Slate 800 */
+  --text: 248 250 252;           /* Slate 50 */
+  --text-muted: 148 163 184;     /* Slate 400 */
+  --border: 51 65 85;            /* Slate 700 */
+}
+
+body {
+  background-color: rgb(var(--background));
+  color: rgb(var(--text));
+  transition: background-color 0.2s ease, color 0.2s ease;
+  min-height: 100vh;
+}
+
+/* Custom classes mapped to CSS variables */
+.bg-custom-card {
+  background-color: rgb(var(--card));
+}
+
+.text-custom-muted {
+  color: rgb(var(--text-muted));
+}
+
+.border-custom {
+  border-color: rgb(var(--border));
+}
+
+.bg-custom-primary {
+  background-color: rgb(var(--primary));
+}
+
+.hover\:bg-custom-primary-hover:hover {
+  background-color: rgb(var(--primary-hover));
+}
+
+.text-custom-primary {
+  color: rgb(var(--primary));
+}

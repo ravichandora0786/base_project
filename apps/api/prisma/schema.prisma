@@ -1,0 +1,115 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Role {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String           @unique
+  is_active       Boolean          @default(true) @map("is_active")
+  created_at      DateTime         @default(now()) @map("created_at") @db.Timestamp
+  updated_at      DateTime         @updatedAt @map("updated_at") @db.Timestamp
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model User {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  email          String    @unique
+  phone          String?   @unique
+  gender         Gender?
+  profile_image  String?   @map("profile_image") @db.VarChar(500)
+  password       String
+  date_of_birth  DateTime? @map("date_of_birth") @db.Date
+  is_active      Boolean   @default(true) @map("is_active")
+  languages      Json?
+  address        Json?
+  about          String?   @db.Text
+  qualification  Json?
+  experience     Decimal?  @db.Decimal(4, 1)
+  work           Json?
+  created_by     String?   @map("created_by") @db.Uuid
+  updated_by     String?   @map("updated_by") @db.Uuid
+  role_id        String    @map("role_id") @db.Uuid
+  role           Role      @relation(fields: [role_id], references: [id], onDelete: Restrict)
+  refresh_token  String?   @map("refresh_token")
+  created_at     DateTime  @default(now()) @map("created_at") @db.Timestamp
+  updated_at     DateTime  @updatedAt @map("updated_at") @db.Timestamp
+
+  @@map("users")
+}
+
+model RolePermission {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String   @unique
+  role_id        String   @map("role_id") @db.Uuid
+  module_id      String   @map("module_id") @db.Uuid
+  permission_ids Json     @map("permission_ids") // JSON array of permission strings/ids
+  role           Role     @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  module         Module   @relation(fields: [module_id], references: [id], onDelete: Cascade)
+  created_at     DateTime @default(now()) @map("created_at") @db.Timestamp
+  updated_at     DateTime @updatedAt @map("updated_at") @db.Timestamp
+
+  @@map("role_permissions")
+}
+
+model Permission {
+  id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String                   @unique
+  code                String?                  @unique
+  is_active           Boolean                  @default(true) @map("is_active")
+  routePermissionMaps RoutePermissionMap[]
+  created_at          DateTime                 @default(now()) @map("created_at") @db.Timestamp
+  updated_at          DateTime                 @updatedAt @map("updated_at") @db.Timestamp
+
+  @@map("permissions")
+}
+
+model Module {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String              @unique
+  display_name    String
+  is_active       Boolean             @default(true) @map("is_active")
+  icon            String?             @db.VarChar(255)
+  route           String?             @db.VarChar(255)
+  sort_order      Int                 @default(0) @map("sort_order")
+  rolePermissions RolePermission[]
+  created_at      DateTime            @default(now()) @map("created_at") @db.Timestamp
+  updated_at      DateTime            @updatedAt @map("updated_at") @db.Timestamp
+
+  @@map("modules")
+}
+
+model BlacklistedToken {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token      String   @unique
+  expires_at DateTime @map("expires_at") @db.Timestamp
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamp
+
+  @@map("blacklisted_tokens")
+}
+
+model RoutePermissionMap {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  method        String      @db.VarChar(10) // GET, POST, etc.
+  route         String      @db.VarChar(255)
+  permission_id String?     @map("permission_id") @db.Uuid
+  permission    Permission? @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  created_at    DateTime    @default(now()) @map("created_at") @db.Timestamp
+  updated_at    DateTime    @updatedAt @map("updated_at") @db.Timestamp
+
+  @@map("route_permission_maps")
+}
+
+enum Gender {
+  male
+  female
+  other
+}
