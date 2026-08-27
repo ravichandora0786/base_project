@@ -5,6 +5,8 @@ import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../database/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import * as argon2 from 'argon2';
 
 @Injectable()
@@ -101,6 +103,85 @@ export class AuthService {
       where: { id: userId },
       data: { refresh_token: hashedRt },
     });
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    // Check phone uniqueness (only if provided and different)
+    if (dto.phone && dto.phone !== user.phone) {
+      const existing = await this.prisma.user.findFirst({
+        where: { phone: dto.phone, NOT: { id: userId } },
+      });
+      if (existing) {
+        throw new ForbiddenException('Phone number already in use by another account');
+      }
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.phone !== undefined && { phone: dto.phone || null }),
+        ...(dto.gender !== undefined && { gender: dto.gender || null }),
+        ...(dto.about !== undefined && { about: dto.about || null }),
+        ...(dto.address !== undefined && { address: dto.address as any }),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        gender: true,
+        about: true,
+        address: true,
+        profile_image: true,
+        is_active: true,
+        role: { select: { id: true, name: true } },
+        updated_at: true,
+      },
+    });
+
+    return updated;
+  }
+
+  async updateProfileImage(userId: string, imageUrl: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { profile_image: imageUrl },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        profile_image: true,
+        is_active: true,
+        role: { select: { id: true, name: true } },
+      },
+    });
+
+    return updated;
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const passwordMatches = await argon2.verify(user.password, dto.oldPassword);
+    if (!passwordMatches) {
+      throw new ForbiddenException('Invalid current password');
+    }
+
+    const hashedNewPassword = await argon2.hash(dto.newPassword);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedNewPassword },
+    });
+
+    return { message: 'Password changed successfully' };
   }
 
   async getTokens(userId: string, email: string, role: string) {

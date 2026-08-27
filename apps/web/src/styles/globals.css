@@ -1,55 +1,71 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 :root {
-  --primary: 79 70 229;          /* Indigo 600 (#4f46e5) */
-  --primary-hover: 67 56 202;    /* Indigo 700 */
-  --secondary: 14 165 233;       /* Sky 500 */
-  --background: 248 250 252;     /* Slate 50 */
-  --card: 255 255 255;
-  --text: 15 23 42;              /* Slate 900 */
-  --text-muted: 100 116 139;     /* Slate 500 */
-  --border: 226 232 240;         /* Slate 200 */
+  --primary: #4f4616;          /* Olive Primary */
+  --primary-hover: #3f3812;    /* Olive Hover */
+  --secondary: #0ea5e9;       /* Sky 500 */
+  --background: #f8fafc;     /* Slate 50 */
+  --card: #ffffff;
+  --text: #0f172a;              /* Slate 900 */
+  --text-muted: #64748b;     /* Slate 500 */
+  --border: #e2e8f0;         /* Slate 200 */
 }
 
 [data-theme='dark'] {
-  --primary: 99 102 241;         /* Indigo 500 (#6366f1) */
-  --primary-hover: 79 70 229;
-  --secondary: 56 189 248;       /* Sky 400 */
-  --background: 15 23 42;        /* Slate 900 */
-  --card: 30 41 59;              /* Slate 800 */
-  --text: 248 250 252;           /* Slate 50 */
-  --text-muted: 148 163 184;     /* Slate 400 */
-  --border: 51 65 85;            /* Slate 700 */
+  --primary: #4f4616;         /* Olive Primary */
+  --primary-hover: #3f3812;   /* Olive Hover */
+  --secondary: #38bdf8;       /* Sky 400 */
+  --background: #0f172a;        /* Slate 900 */
+  --card: #1e293b;              /* Slate 800 */
+  --text: #f8fafc;           /* Slate 50 */
+  --text-muted: #94a6b8;     /* Slate 400 */
+  --border: #334155;            /* Slate 700 */
 }
 
 body {
-  background-color: rgb(var(--background));
-  color: rgb(var(--text));
+  background-color: var(--background);
+  color: var(--text);
   transition: background-color 0.2s ease, color 0.2s ease;
   min-height: 100vh;
 }
 
 /* Custom classes mapped to CSS variables */
 .bg-custom-card {
-  background-color: rgb(var(--card));
+  background-color: var(--card);
+}
+
+.bg-custom-background {
+  background-color: var(--background);
 }
 
 .text-custom-muted {
-  color: rgb(var(--text-muted));
+  color: var(--text-muted);
 }
 
 .border-custom {
-  border-color: rgb(var(--border));
+  border-color: var(--border);
 }
 
 .bg-custom-primary {
-  background-color: rgb(var(--primary));
+  background-color: var(--primary);
 }
 
 .hover\:bg-custom-primary-hover:hover {
-  background-color: rgb(var(--primary-hover));
+  background-color: var(--primary-hover);
 }
 
 .text-custom-primary {
-  color: rgb(var(--primary));
+  color: var(--primary);
+}
+
+/* Hide scrollbar globally but preserve scrolling functionality */
+::-webkit-scrollbar {
+  display: none !important;
+}
+
+* {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
 }

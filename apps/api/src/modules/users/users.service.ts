@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { RegisterDto } from '../auth/dto/register.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -26,6 +26,7 @@ export class UsersService {
         gender: true,
         profile_image: true,
         about: true,
+        address: true,
         is_active: true,
         role: {
           select: {
@@ -91,6 +92,15 @@ export class UsersService {
       throw new ConflictException('User with this email already exists');
     }
 
+    if ((dto as any).phone && String((dto as any).phone).trim() !== '') {
+      const existingPhone = await this.prisma.user.findFirst({
+        where: { phone: String((dto as any).phone) },
+      });
+      if (existingPhone) {
+        throw new ConflictException('Phone number already in use');
+      }
+    }
+
     const hashedPassword = await argon2.hash(dto.password);
     const roleName = dto.role ? String(dto.role).toLowerCase() : 'user';
 
@@ -110,6 +120,11 @@ export class UsersService {
         password: hashedPassword,
         name: dto.name,
         role_id: role.id,
+        phone: dto.phone || null,
+        gender: dto.gender,
+        address: dto.address,
+        date_of_birth: dto.date_of_birth ? new Date(dto.date_of_birth) : null,
+        about: dto.about,
       },
       select: {
         id: true,
@@ -147,8 +162,16 @@ export class UsersService {
     });
   }
 
-  async update(id: string, dto: UpdateUserDto) {
-    await this.findById(id);
+  async update(id: string, dto: UpdateUserDto, isAdmin: boolean = false) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    // Restrict changing roles to admins only
+    if (dto.role_id && dto.role_id !== user.role_id && !isAdmin) {
+      throw new ForbiddenException('Only administrators can change user roles');
+    }
 
     if (dto.email) {
       const existing = await this.prisma.user.findFirst({
@@ -159,17 +182,28 @@ export class UsersService {
       }
     }
 
+    if (dto.phone && dto.phone.trim() !== '') {
+      const existing = await this.prisma.user.findFirst({
+        where: { phone: dto.phone, NOT: { id } },
+      });
+      if (existing) {
+        throw new ConflictException('Phone number already in use');
+      }
+    }
+
     return this.prisma.user.update({
       where: { id },
       data: {
         name: dto.name,
         email: dto.email,
-        phone: dto.phone,
+        phone: dto.phone || null,
         gender: dto.gender,
         profile_image: dto.profile_image,
         about: dto.about,
         is_active: dto.is_active,
         role_id: dto.role_id,
+        address: dto.address,
+        date_of_birth: dto.date_of_birth ? new Date(dto.date_of_birth) : null,
       },
       select: {
         id: true,
@@ -182,6 +216,26 @@ export class UsersService {
           },
         },
         updated_at: true,
+      },
+    });
+  }
+
+  async updateStatus(id: string, isActive: boolean) {
+    await this.findById(id);
+    return this.prisma.user.update({
+      where: { id },
+      data: { is_active: isActive },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        is_active: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
   }

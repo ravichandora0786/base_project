@@ -56,36 +56,36 @@ export default function SelectDropDown({
           menuPortal: (base) => ({ ...base, zIndex: 9999 }),
           control: (provided, state) => ({
             ...provided,
-            backgroundColor: 'transparent',
+            backgroundColor: 'var(--card)',
             border: hasError
               ? '1px solid #ef4444'
               : state.isFocused
-              ? '1px solid #6366f1'
-              : '1px solid rgb(var(--border))',
+                ? '1px solid var(--primary)'
+              : '1px solid var(--border)',
             borderRadius: '0.5rem',
             boxShadow: state.isFocused
-              ? '0 0 0 2px rgba(99, 102, 241, 0.2)'
+              ? '0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent)'
               : 'none',
             '&:hover': {
               borderColor: hasError
                 ? '#ef4444'
-                : '#6366f1',
+                : 'var(--primary)',
               cursor: 'pointer',
             },
           }),
 
           menu: (provided) => ({
             ...provided,
-            backgroundColor: 'rgb(var(--card))',
-            border: '1px solid rgb(var(--border))',
+            backgroundColor: 'var(--card)',
+            border: '1px solid var(--border)',
           }),
 
           option: (provided, state) => ({
             ...provided,
             backgroundColor: state.isSelected
-              ? '#6366f1'
+              ? 'var(--primary)'
               : state.isFocused
-              ? 'rgba(99, 102, 241, 0.1)'
+              ? 'color-mix(in srgb, var(--primary) 10%, transparent)'
               : 'transparent',
             color: state.isSelected
               ? '#fff'

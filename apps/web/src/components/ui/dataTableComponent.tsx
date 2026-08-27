@@ -56,10 +56,10 @@ const DataTableComponent = ({
   });
 
   return (
-    <div className="table-container space-y-4">
-      <div className="table-wrapper overflow-x-auto bg-custom-card border border-custom rounded-2xl shadow-sm">
+    <div className="table-container flex-1 flex flex-col min-h-0 gap-4">
+      <div className="table-wrapper flex-grow overflow-auto bg-custom-card border border-custom rounded-2xl shadow-sm min-h-0">
         <table className="table-base w-full text-left border-collapse">
-          <thead className="table-head bg-gray-50 dark:bg-gray-800 border-b border-custom">
+          <thead className="table-head sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 border-b border-custom shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.1)] dark:shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.1)]">
             {table.getHeaderGroups()?.map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers?.map((header) => (

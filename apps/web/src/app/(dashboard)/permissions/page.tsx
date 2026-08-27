@@ -5,12 +5,18 @@ import { apiClient } from '@/lib/api/client';
 import { toast } from 'react-toastify';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
-import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiRefreshCw } from 'react-icons/fi';
 import RenderFields from '@/components/ui/renderFields';
 import LoadingButton from '@/components/ui/loadingButton';
 import DataTableComponent from '@/components/ui/dataTableComponent';
 import GenericModal from '@/components/ui/genericModal';
+import SelectDropDown from '@/components/ui/selectDropDown';
 import { ColumnDef } from '@tanstack/react-table';
+import CustomSwitch from '@/components/ui/customSwitch';
+import { useAppDispatch } from '@/store';
+import { checkAuthStart } from '@/features/auth/store/auth.slice';
+import { STATUS_FILTER_OPTIONS } from '@/lib/constants';
+import { useConfirm } from '@/components/ui/confirmationModal';
 
 interface Permission {
   id: string;
@@ -46,10 +52,16 @@ const validationSchema = Yup.object().shape({
 });
 
 export default function PermissionsCRUDPage() {
+  const dispatch = useAppDispatch();
+  const confirm = useConfirm();
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
+  
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | boolean>('all');
   
   // Local client-side pagination state
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
@@ -91,6 +103,7 @@ export default function PermissionsCRUDPage() {
       }
       setModalOpen(false);
       fetchPermissions();
+      dispatch(checkAuthStart());
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Action failed');
     } finally {
@@ -99,11 +112,19 @@ export default function PermissionsCRUDPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this permission?')) return;
+    const isConfirmed = await confirm({
+      title: 'Delete Permission?',
+      message: 'Are you sure you want to delete this permission? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'danger',
+    });
+    if (!isConfirmed) return;
     try {
       await apiClient.delete(`/permissions/${id}`);
       toast.success('Permission deleted successfully');
       fetchPermissions();
+      dispatch(checkAuthStart());
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to delete permission');
     }
@@ -129,20 +150,25 @@ export default function PermissionsCRUDPage() {
       {
         header: 'Status',
         accessorKey: 'is_active',
-        cell: ({ getValue }) => {
-          const isActive = getValue() as boolean;
-          return (
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                isActive
-                  ? 'bg-green-100 text-green-800 dark:bg-green-950/20 dark:text-green-400'
-                  : 'bg-red-100 text-red-800 dark:bg-red-950/20 dark:text-red-400'
-              }`}
-            >
-              {isActive ? 'Active' : 'Inactive'}
-            </span>
-          );
-        },
+        cell: ({ row }) => (
+          <CustomSwitch
+            name={`perm-status-${row.original.id}`}
+            checked={row.original.is_active}
+            onChange={async (e) => {
+              const newVal = e.target.checked;
+              try {
+                await apiClient.patch(`/permissions/${row.original.id}`, {
+                  is_active: newVal,
+                });
+                toast.success('Permission status updated successfully');
+                fetchPermissions();
+                dispatch(checkAuthStart());
+              } catch (err: any) {
+                toast.error(err.response?.data?.message || 'Failed to update status');
+              }
+            }}
+          />
+        ),
       },
       {
         header: () => <div className="text-right">Actions</div>,
@@ -154,6 +180,7 @@ export default function PermissionsCRUDPage() {
               onClick={() => handleOpenEdit(row.original)}
               className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition inline-flex items-center"
               aria-label="Edit Permission"
+              title="Edit"
             >
               <FiEdit2 className="w-4 h-4" />
             </LoadingButton>
@@ -172,43 +199,96 @@ export default function PermissionsCRUDPage() {
     [permissions]
   );
 
+  // Client-side filtering
+  const filteredPermissions = React.useMemo(() => {
+    return permissions.filter((p) => {
+      const matchesSearch =
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.code.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus =
+        statusFilter === 'all' ? true : p.is_active === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [permissions, searchQuery, statusFilter]);
+
   // Client-side pagination slicing
   const slicedPermissions = React.useMemo(() => {
     const start = pagination.pageIndex * pagination.pageSize;
     const end = start + pagination.pageSize;
-    return permissions.slice(start, end);
-  }, [permissions, pagination]);
+    return filteredPermissions.slice(start, end);
+  }, [filteredPermissions, pagination]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-950 tracking-tight">Permissions Management</h1>
-          <p className="mt-1 text-sm text-custom-muted">Configure access rights and codes for custom middleware</p>
+    <div className="space-y-4 flex-1 flex flex-col min-h-0">
+      {/* Toolbar Search, Status Filter and Refresh */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center space-x-3 flex-grow max-w-md">
+          <div className="relative flex-grow">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+              <FiSearch className="w-4 h-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search by Name"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-custom hover:border-primary rounded-xl text-sm bg-white dark:bg-gray-800 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+            />
+          </div>
+          
+          <div className="w-40 shrink-0">
+            <SelectDropDown
+              name="status-filter"
+              options={STATUS_FILTER_OPTIONS as any}
+              value={STATUS_FILTER_OPTIONS.find((opt) => opt.value === statusFilter) as any}
+              onChange={(opt: any) => {
+                if (opt) setStatusFilter(opt.value);
+              }}
+              isSearchable={false}
+              isClearable={false}
+            />
+          </div>
         </div>
-        <LoadingButton
-          onClick={handleOpenCreate}
-          variant="custom"
-          className="flex items-center space-x-2 px-4 py-2.5 bg-custom-primary hover:bg-custom-primary-hover text-white rounded-xl font-bold shadow-md transition"
-        >
-          <FiPlus className="w-5 h-5" />
-          <span>Add Permission</span>
-        </LoadingButton>
+
+        <div className="flex items-center space-x-3">
+          <LoadingButton
+            variant="custom"
+            onClick={() => {
+              setSearchQuery('');
+              setStatusFilter('all');
+              fetchPermissions();
+            }}
+            className="p-2.5 border border-custom rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 transition"
+            title="Refresh Data"
+          >
+            <FiRefreshCw className="w-4 h-4 animate-hover-spin" />
+          </LoadingButton>
+
+          <LoadingButton
+            onClick={handleOpenCreate}
+            variant="custom"
+            className="flex items-center space-x-2 px-4 py-2.5 bg-custom-primary hover:bg-custom-primary-hover text-white rounded-xl font-bold shadow-md transition"
+          >
+            <FiPlus className="w-4 h-4" />
+          </LoadingButton>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      ) : (
-        <DataTableComponent
-          columns={columns}
-          data={slicedPermissions}
-          pagination={pagination}
-          setPagination={setPagination}
-          totalRows={permissions.length}
-        />
-      )}
+      <div className="flex-1 flex flex-col min-h-0">
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <DataTableComponent
+            columns={columns}
+            data={slicedPermissions}
+            pagination={pagination}
+            setPagination={setPagination}
+            totalRows={filteredPermissions.length}
+          />
+        )}
+      </div>
 
       {/* Modal Dialog using GenericModal & RenderFields */}
       <GenericModal
@@ -237,12 +317,11 @@ export default function PermissionsCRUDPage() {
                   columns={1}
                 />
 
-                <div className="flex space-x-3 pt-2">
+                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-gray-700">
                   <LoadingButton
                     type="button"
                     variant="secondary"
                     onClick={() => setModalOpen(false)}
-                    className="flex-1"
                   >
                     Cancel
                   </LoadingButton>
@@ -250,7 +329,6 @@ export default function PermissionsCRUDPage() {
                     type="submit"
                     isLoading={isSubmitting}
                     variant="primary"
-                    className="flex-1"
                   >
                     Save
                   </LoadingButton>

@@ -12,7 +12,7 @@ export default function InputBox({ error, touched, className = '', type = 'text'
   const baseClass = `h-10 w-full rounded-lg border bg-custom-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 transition ${
     hasError 
       ? 'border-red-500 focus-visible:ring-red-500' 
-      : 'border-custom focus-visible:ring-indigo-500'
+      : 'border-border hover:border-primary focus-visible:border-primary focus-visible:ring-primary/20'
   } ${className}`;
 
   if (isTextArea) {

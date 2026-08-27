@@ -4,8 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { logoutStart } from '@/features/auth/store/auth.slice';
-import { FiSun, FiMoon, FiLogOut, FiUser, FiMenu } from 'react-icons/fi';
+import { FiSun, FiMoon, FiLogOut, FiMenu } from 'react-icons/fi';
 import LoadingButton from '@/components/ui/loadingButton';
+import { useConfirm } from '@/components/ui/confirmationModal';
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -16,6 +17,7 @@ export function Header({ onToggleSidebar, collapsed = false }: HeaderProps) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const dispatch = useAppDispatch();
+  const confirm = useConfirm();
   const { user } = useAppSelector((state) => state.auth);
 
   // Avoid Hydration Mismatch
@@ -23,8 +25,17 @@ export function Header({ onToggleSidebar, collapsed = false }: HeaderProps) {
     setMounted(true);
   }, []);
 
-  const handleLogout = () => {
-    dispatch(logoutStart());
+  const handleLogout = async () => {
+    const isConfirmed = await confirm({
+      title: 'Log Out?',
+      message: 'Are you sure you want to sign out of your account?',
+      confirmText: 'Log Out',
+      cancelText: 'Cancel',
+      variant: 'danger',
+    });
+    if (isConfirmed) {
+      dispatch(logoutStart());
+    }
   };
 
   const toggleTheme = () => {

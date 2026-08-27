@@ -23,7 +23,7 @@ export default function LoadingButton({
 
   const variantClasses = {
     primary:
-      'bg-indigo-600 text-white hover:bg-indigo-700 w-full px-4 py-2 rounded-xl shadow',
+      'bg-custom-primary hover:bg-custom-primary-hover text-white px-4 py-2 rounded-xl shadow',
     secondary:
       'bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 px-4 py-2 rounded-xl',
     danger: 'bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl',

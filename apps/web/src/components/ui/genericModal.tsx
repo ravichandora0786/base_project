@@ -41,6 +41,7 @@ export default function GenericModal({
             type="button"
             className="text-gray-500 hover:text-red-500 text-2xl font-bold transition"
             aria-label="Close Modal"
+            title="Close"
           >
             <IoCloseSharp size={22} />
           </button>

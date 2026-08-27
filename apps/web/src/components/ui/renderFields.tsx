@@ -33,7 +33,7 @@ const RenderFields = ({
     1: 'lg:grid-cols-1 md:grid-cols-1',
   };
   return (
-    <div className={`grid grid-cols-1 ${variantClasses[columns] || 'lg:grid-cols-4'} gap-4`}>
+    <div className={`grid grid-cols-1 px-1 ${variantClasses[columns] || 'lg:grid-cols-4'} gap-4`}>
       {fields.map(
         ({
           name,
@@ -49,12 +49,15 @@ const RenderFields = ({
           onKeyDown,
           maxLength,
           minDate,
+          placeholder,
+          colSpan,
         }) => {
           const fieldValue = getIn(values, name);
           const fieldError = getIn(errors, name);
           const fieldTouched = getIn(touched, name);
+          const colSpanClass = colSpan === 2 ? 'sm:col-span-2' : colSpan === 3 ? 'sm:col-span-3' : colSpan === 4 ? 'sm:col-span-4' : '';
           return (
-            <div key={name}>
+            <div key={name} className={colSpanClass}>
               {type !== 'toggle' && type !== 'file' && (
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   {label} {required && <span className="text-red-500">*</span>}
@@ -182,7 +185,7 @@ const RenderFields = ({
                       setFieldValue(name, e.target.value);
                     }
                   }}
-                  placeholder={`Enter ${label}`}
+                  placeholder={placeholder || `Enter ${label}`}
                   error={fieldError}
                   touched={fieldTouched}
                   disabled={disabled}

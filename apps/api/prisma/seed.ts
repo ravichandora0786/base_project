@@ -49,15 +49,32 @@ async function main() {
   for (const m of DEFAULT_MODULES) {
     const mod = await prisma.module.upsert({
       where: { name: m.name },
-      update: {},
+      update: {
+        display_name: m.display_name,
+        route: m.route,
+        icon: m.icon,
+        sort_order: m.sort_order,
+      },
       create: {
         name: m.name,
         display_name: m.display_name,
+        route: m.route,
+        icon: m.icon,
+        sort_order: m.sort_order,
         is_active: true,
       },
     });
     modules.push(mod);
   }
+  
+  // Cleanup stale modules
+  const defaultModuleNames = DEFAULT_MODULES.map((m) => m.name);
+  await prisma.module.deleteMany({
+    where: {
+      name: { notIn: defaultModuleNames },
+    },
+  });
+  
   console.log('Modules seeded successfully.');
 
   // 4. Create Default Users

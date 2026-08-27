@@ -5,12 +5,19 @@ import { apiClient } from '@/lib/api/client';
 import { toast } from 'react-toastify';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
-import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiUser, FiSearch, FiRefreshCw, FiEye } from 'react-icons/fi';
 import RenderFields from '@/components/ui/renderFields';
 import LoadingButton from '@/components/ui/loadingButton';
 import DataTableComponent from '@/components/ui/dataTableComponent';
 import GenericModal from '@/components/ui/genericModal';
+import SelectDropDown from '@/components/ui/selectDropDown';
+import CustomSwitch from '@/components/ui/customSwitch';
+import { useAppSelector, useAppDispatch } from '@/store';
+import { checkAuthStart } from '@/features/auth/store/auth.slice';
 import { ColumnDef } from '@tanstack/react-table';
+import { STATUS_FILTER_OPTIONS, GENDER_OPTIONS, PHONE_REGEX, PHONE_ERROR, EMAIL_GMAIL_REGEX, EMAIL_GMAIL_ERROR, PASSWORD_REGEX, PASSWORD_ERROR } from '@/lib/constants';
+import { useConfirm } from '@/components/ui/confirmationModal';
+import { useRouter } from 'next/navigation';
 
 interface Role {
   id: string;
@@ -24,20 +31,27 @@ interface User {
   email: string;
   phone: string | null;
   gender: string | null;
+  profile_image: string | null;
   is_active: boolean;
   role: {
     id: string;
     name: string;
   };
+  permissions?: Record<string, string[]>;
 }
 
 export default function UsersCRUDPage() {
+  const dispatch = useAppDispatch();
+  const confirm = useConfirm();
+  const router = useRouter();
+  const { user: currentUser } = useAppSelector((state) => state.auth);
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-
+  
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | boolean>('all');
   // Local client-side pagination state
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
 
@@ -68,133 +82,51 @@ export default function UsersCRUDPage() {
   }, []);
 
   const handleOpenCreate = () => {
-    setEditingUser(null);
-    setModalOpen(true);
+    router.push('/users/add');
   };
 
   const handleOpenEdit = (user: User) => {
-    setEditingUser(user);
-    setModalOpen(true);
+    router.push(`/users/edit?id=${user.id}`);
   };
 
-  const handleSubmit = async (values: any, { setSubmitting }: any) => {
-    try {
-      if (editingUser) {
-        const payload = {
-          name: values.name,
-          email: values.email,
-          phone: values.phone || null,
-          gender: values.gender || null,
-          role_id: values.role_id,
-          is_active: values.is_active,
-        };
-        await apiClient.patch(`/users/${editingUser.id}`, payload);
-        toast.success('User updated successfully');
-      } else {
-        const selectedRole = roles.find((r) => r.id === values.role_id);
-        const payload = {
-          name: values.name,
-          email: values.email,
-          password: values.password,
-          role: selectedRole ? selectedRole.name : 'user',
-        };
-        await apiClient.post('/users', payload);
-        toast.success('User created successfully');
-      }
-      setModalOpen(false);
-      fetchUsers();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Action failed');
-    } finally {
-      setSubmitting(false);
-    }
+  const handleOpenView = (user: User) => {
+    router.push(`/users/${user.id}`);
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    const isConfirmed = await confirm({
+      title: 'Delete User Account?',
+      message: 'Are you sure you want to delete this user? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'danger',
+    });
+    if (!isConfirmed) return;
     try {
       await apiClient.delete(`/users/${id}`);
       toast.success('User deleted successfully');
       fetchUsers();
+      dispatch(checkAuthStart());
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to delete user');
     }
   };
 
-  const roleOptions = roles
-    .filter((r) => r.is_active)
-    .map((r) => ({
-      label: r.name.charAt(0).toUpperCase() + r.name.slice(1),
-      value: r.id,
-    }));
-
-  const fields = [
-    {
-      name: 'name',
-      label: 'Full Name',
-      type: 'text',
-      required: true,
-    },
-    {
-      name: 'email',
-      label: 'Email Address',
-      type: 'email',
-      required: true,
-    },
-    ...(!editingUser
-      ? [
-          {
-            name: 'password',
-            label: 'Password',
-            type: 'password',
-            required: true,
-          },
-        ]
-      : []),
-    {
-      name: 'phone',
-      label: 'Phone Number',
-      type: 'text',
-      required: false,
-    },
-    {
-      name: 'gender',
-      label: 'Gender',
-      type: 'select',
-      required: false,
-      options: [
-        { label: 'Male', value: 'male' },
-        { label: 'Female', value: 'female' },
-        { label: 'Other', value: 'other' },
-      ],
-    },
-    {
-      name: 'role_id',
-      label: 'User Role',
-      type: 'select',
-      required: true,
-      options: roleOptions,
-    },
-    {
-      name: 'is_active',
-      label: 'Status Active',
-      type: 'toggle',
-      required: false,
-    },
-  ];
-
-  const validationSchema = Yup.object().shape({
-    name: Yup.string().required('Name is required'),
-    email: Yup.string().email('Invalid email format').required('Email is required'),
-    role_id: Yup.string().required('Role is required'),
-    ...(!editingUser
-      ? {
-          password: Yup.string()
-            .required('Password is required')
-            .min(6, 'Password must be at least 6 characters'),
-        }
-      : {}),
-  });
+  // Exclude logged in user and apply search & status filters
+  const filteredUsers = React.useMemo(() => {
+    let list = users;
+    if (currentUser) {
+      list = list.filter((u) => u.id !== currentUser.id);
+    }
+    return list.filter((u) => {
+      const matchesSearch =
+        u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus =
+        statusFilter === 'all' ? true : u.is_active === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [users, currentUser, searchQuery, statusFilter]);
 
   // Columns definition for DataTableComponent
   const columns = React.useMemo<ColumnDef<User>[]>(
@@ -203,27 +135,40 @@ export default function UsersCRUDPage() {
         header: 'Name / Email',
         accessorKey: 'name',
         cell: ({ row }) => (
-          <div>
-            <div className="font-bold text-gray-900 dark:text-white capitalize">{row.original.name}</div>
-            <div className="text-xs text-custom-muted">{row.original.email}</div>
+          <div className="flex items-center space-x-3">
+            {row.original.profile_image ? (
+              <img
+                src={row.original.profile_image}
+                alt={row.original.name}
+                className="w-9 h-9 rounded-full object-cover border border-custom"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500">
+                <FiUser className="w-5 h-5" />
+              </div>
+            )}
+            <div>
+              <div className="font-bold text-gray-900 dark:text-white capitalize">{row.original.name}</div>
+              <div className="text-xs text-custom-muted">{row.original.email}</div>
+            </div>
           </div>
         ),
       },
       {
-        header: 'Phone / Gender',
+        header: 'Phone',
         accessorKey: 'phone',
-        cell: ({ row }) => (
-          <div>
-            <div className="text-sm">{row.original.phone || '-'}</div>
-            <div className="text-xs text-custom-muted capitalize">{row.original.gender || '-'}</div>
-          </div>
-        ),
+        cell: ({ row }) => <span className="text-sm font-semibold">{row.original.phone || '-'}</span>,
+      },
+      {
+        header: 'Gender',
+        accessorKey: 'gender',
+        cell: ({ row }) => <span className="text-sm font-semibold capitalize">{row.original.gender || '-'}</span>,
       },
       {
         header: 'Role',
         accessorKey: 'role.name',
         cell: ({ row }) => (
-          <span className="px-2 py-1 text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900 rounded-md capitalize">
+          <span className="font-bold text-gray-900 dark:text-white capitalize">
             {row.original.role?.name || '-'}
           </span>
         ),
@@ -231,18 +176,28 @@ export default function UsersCRUDPage() {
       {
         header: 'Status',
         accessorKey: 'is_active',
-        cell: ({ getValue }) => {
-          const isActive = getValue() as boolean;
+        cell: ({ row }) => {
+          const isActive = row.original.is_active;
+          const isAdmin = currentUser?.role?.name?.toLowerCase() === 'admin';
           return (
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                isActive
-                  ? 'bg-green-100 text-green-800 dark:bg-green-950/20 dark:text-green-400'
-                  : 'bg-red-100 text-red-800 dark:bg-red-950/20 dark:text-red-400'
-              }`}
-            >
-              {isActive ? 'Active' : 'Inactive'}
-            </span>
+            <CustomSwitch
+              name={`status-${row.original.id}`}
+              checked={isActive}
+              onChange={async (e) => {
+                const newVal = e.target.checked;
+                try {
+                  await apiClient.patch(`/users/${row.original.id}/status`, {
+                    is_active: newVal,
+                  });
+                  toast.success('User status updated successfully');
+                  fetchUsers();
+                  dispatch(checkAuthStart());
+                } catch (err: any) {
+                  toast.error(err.response?.data?.message || 'Failed to update status');
+                }
+              }}
+              disabled={!isAdmin}
+            />
           );
         },
       },
@@ -253,9 +208,19 @@ export default function UsersCRUDPage() {
           <div className="text-right space-x-2">
             <LoadingButton
               variant="custom"
+              onClick={() => handleOpenView(row.original)}
+              className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20 rounded-xl transition inline-flex items-center"
+              aria-label="View User Details"
+              title="View"
+            >
+              <FiEye className="w-4 h-4" />
+            </LoadingButton>
+            <LoadingButton
+              variant="custom"
               onClick={() => handleOpenEdit(row.original)}
               className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition inline-flex items-center"
               aria-label="Edit User"
+              title="Edit"
             >
               <FiEdit2 className="w-4 h-4" />
             </LoadingButton>
@@ -264,6 +229,7 @@ export default function UsersCRUDPage() {
               onClick={() => handleDelete(row.original.id)}
               className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition inline-flex items-center"
               aria-label="Delete User"
+              title="Delete"
             >
               <FiTrash2 className="w-4 h-4" />
             </LoadingButton>
@@ -271,101 +237,87 @@ export default function UsersCRUDPage() {
         ),
       },
     ],
-    [users]
+    [filteredUsers, currentUser]
   );
 
   // Client-side pagination slicing
   const slicedUsers = React.useMemo(() => {
     const start = pagination.pageIndex * pagination.pageSize;
     const end = start + pagination.pageSize;
-    return users.slice(start, end);
-  }, [users, pagination]);
+    return filteredUsers.slice(start, end);
+  }, [filteredUsers, pagination]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-950 tracking-tight">Users Management</h1>
-          <p className="mt-1 text-sm text-custom-muted">Admin dashboard for platform users and assignments</p>
+    <div className="space-y-4 flex-1 flex flex-col min-h-0">
+      {/* Toolbar Search, Status Filter and Refresh */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center space-x-3 flex-grow max-w-md">
+          <div className="relative flex-grow">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+              <FiSearch className="w-4 h-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search by Name"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-custom hover:border-primary rounded-xl text-sm bg-white dark:bg-gray-800 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+            />
+          </div>
+          
+          <div className="w-40 shrink-0">
+            <SelectDropDown
+              name="status-filter"
+              options={STATUS_FILTER_OPTIONS as any}
+              value={STATUS_FILTER_OPTIONS.find((opt) => opt.value === statusFilter) as any}
+              onChange={(opt: any) => {
+                if (opt) setStatusFilter(opt.value);
+              }}
+              isSearchable={false}
+              isClearable={false}
+            />
+          </div>
         </div>
-        <LoadingButton
-          onClick={handleOpenCreate}
-          variant="custom"
-          className="flex items-center space-x-2 px-4 py-2.5 bg-custom-primary hover:bg-custom-primary-hover text-white rounded-xl font-bold shadow-md transition"
-        >
-          <FiPlus className="w-5 h-5" />
-          <span>Add User</span>
-        </LoadingButton>
+
+        <div className="flex items-center space-x-3">
+          <LoadingButton
+            variant="custom"
+            onClick={() => {
+              setSearchQuery('');
+              setStatusFilter('all');
+              fetchUsers();
+            }}
+            className="p-2.5 border border-custom rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 transition"
+            title="Refresh"
+          >
+            <FiRefreshCw className="w-4 h-4 animate-hover-spin" />
+          </LoadingButton>
+
+          <LoadingButton
+            onClick={handleOpenCreate}
+            variant="custom"
+            className="flex items-center space-x-2 px-4 py-2.5 bg-custom-primary hover:bg-custom-primary-hover text-white rounded-xl font-bold shadow-md transition"
+          >
+            <FiPlus className="w-4 h-4" />
+          </LoadingButton>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      ) : (
-        <DataTableComponent
-          columns={columns}
-          data={slicedUsers}
-          pagination={pagination}
-          setPagination={setPagination}
-          totalRows={users.length}
-        />
-      )}
-
-      {/* Modal Dialog using GenericModal & RenderFields */}
-      <GenericModal
-        showModal={modalOpen}
-        closeModal={() => setModalOpen(false)}
-        modalTitle={editingUser ? 'Update User Details' : 'Create User Account'}
-        modalBody={
-          <Formik
-            initialValues={{
-              name: editingUser ? editingUser.name : '',
-              email: editingUser ? editingUser.email : '',
-              password: '',
-              phone: editingUser?.phone ? editingUser.phone : '',
-              gender: editingUser?.gender ? editingUser.gender : '',
-              role_id: editingUser?.role?.id ? editingUser.role.id : '',
-              is_active: editingUser ? editingUser.is_active : true,
-            }}
-            validationSchema={validationSchema}
-            onSubmit={handleSubmit}
-          >
-            {({ values, errors, touched, handleBlur, setFieldValue, isSubmitting }) => (
-              <Form className="space-y-4">
-                <RenderFields
-                  fields={fields}
-                  values={values}
-                  errors={errors}
-                  touched={touched}
-                  setFieldValue={setFieldValue}
-                  handleBlur={handleBlur}
-                  columns={2}
-                />
-
-                <div className="flex space-x-3 pt-2">
-                  <LoadingButton
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setModalOpen(false)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </LoadingButton>
-                  <LoadingButton
-                    type="submit"
-                    isLoading={isSubmitting}
-                    variant="primary"
-                    className="flex-1"
-                  >
-                    Save
-                  </LoadingButton>
-                </div>
-              </Form>
-            )}
-          </Formik>
-        }
-      />
+      <div className="flex-1 flex flex-col min-h-0">
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <DataTableComponent
+            columns={columns}
+            data={slicedUsers}
+            pagination={pagination}
+            setPagination={setPagination}
+            totalRows={filteredUsers.length}
+          />
+        )}
+      </div>
     </div>
   );
 }

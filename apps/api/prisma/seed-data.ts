@@ -24,15 +24,15 @@ export const DEFAULT_PERMISSIONS = [
   { name: 'edit', code: 'edit' },
   { name: 'delete', code: 'delete' },
   { name: 'view detail', code: 'view_detail' },
+  { name: 'update status', code: 'update_status' },
 ];
 
 export const DEFAULT_MODULES = [
-  { name: 'user', display_name: 'User' },
-  { name: 'role', display_name: 'Role' },
-  { name: 'permission', display_name: 'Permission' },
-  { name: 'module', display_name: 'Module' },
-  { name: 'role-permission', display_name: 'Role permission' },
-  { name: 'dashboard', display_name: 'Dashboard' },
+  { name: 'dashboard', display_name: 'Dashboard', route: '/dashboard', icon: 'FiGrid', sort_order: 0 },
+  { name: 'user', display_name: 'Users', route: '/users', icon: 'FiUsers', sort_order: 1 },
+  { name: 'role', display_name: 'Roles', route: '/roles', icon: 'FiShield', sort_order: 2 },
+  { name: 'permission', display_name: 'Permissions', route: '/permissions', icon: 'FiLock', sort_order: 3 },
+  { name: 'module', display_name: 'App Modules', route: '/modules', icon: 'FiFolder', sort_order: 4 },
 ];
 
 export const DEFAULT_ROLE_PERMISSIONS = [

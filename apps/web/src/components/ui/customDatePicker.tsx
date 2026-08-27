@@ -48,7 +48,7 @@ const CustomDatePicker = (props: CustomDatePickerProps) => {
           disabled:cursor-not-allowed disabled:opacity-50 md:text-sm ${
             touched && error
               ? 'border-red-500 hover:border-red-500 focus-visible:ring-red-500'
-              : 'border-custom hover:border-indigo-500 focus-visible:ring-indigo-500'
+              : 'border-border hover:border-primary focus-visible:border-primary focus-visible:ring-primary/20'
           } ${className}`;
 
   const formatDate = (date: Date | null) => {
@@ -87,6 +87,7 @@ const CustomDatePicker = (props: CustomDatePickerProps) => {
         onChange={handleSingleChange}
         placeholderText={placeholderText}
         className={classes}
+        wrapperClassName="w-full"
         isClearable={isClearable}
         dateFormat={dateFormat}
         minDate={minDate}
@@ -108,6 +109,7 @@ const CustomDatePicker = (props: CustomDatePickerProps) => {
       selectsRange
       placeholderText={placeholderText}
       className={classes}
+      wrapperClassName="w-full"
       isClearable={isClearable}
       dateFormat={dateFormat}
       disabled={disabled || false}

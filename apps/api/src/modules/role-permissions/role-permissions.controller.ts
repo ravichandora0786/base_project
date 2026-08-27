@@ -13,6 +13,12 @@ export class RolePermissionsController {
   constructor(private readonly rolePermissionsService: RolePermissionsService) {}
 
   @Roles(RoleEnum.ADMIN)
+  @Post('bulk')
+  bulkSave(@Body() body: { roleId: string; rolePermissions: { moduleId: string; permissionIds: string[] }[] }) {
+    return this.rolePermissionsService.bulkSave(body.roleId, body.rolePermissions);
+  }
+
+  @Roles(RoleEnum.ADMIN)
   @Post()
   create(@Body() createRolePermissionDto: CreateRolePermissionDto) {
     return this.rolePermissionsService.create(createRolePermissionDto);

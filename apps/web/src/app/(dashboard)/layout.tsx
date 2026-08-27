@@ -20,16 +20,16 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-custom-card text-custom">
+    <div className="flex h-screen w-screen overflow-hidden bg-custom-card text-custom">
       {/* Sidebar */}
       <DynamicSidebar collapsed={collapsed} />
 
       {/* Main Content Workspace */}
-      <div className="flex-1 flex flex-col min-w-0 bg-gray-50 dark:bg-gray-900 transition duration-200">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-custom-background transition duration-200">
         <Header collapsed={collapsed} onToggleSidebar={() => setCollapsed(!collapsed)} />
         
-        <main className="flex-1 p-4 md:p-5 overflow-y-auto">
-          <div className="w-full">
+        <main className="flex-1 p-4 md:p-6 flex flex-col min-h-0 overflow-hidden">
+          <div className="w-full flex-1 flex flex-col min-h-0">
             {children}
           </div>
         </main>
