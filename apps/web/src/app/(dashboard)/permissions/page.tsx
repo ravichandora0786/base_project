@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { apiClient } from '@/lib/api/client';
+import React, { useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
@@ -13,10 +12,29 @@ import GenericModal from '@/components/ui/genericModal';
 import SelectDropDown from '@/components/ui/selectDropDown';
 import { ColumnDef } from '@tanstack/react-table';
 import CustomSwitch from '@/components/ui/customSwitch';
-import { useAppDispatch } from '@/store';
+import { useAppDispatch, useAppSelector } from '@/store';
 import { checkAuthStart } from '@/features/auth/store/auth.slice';
 import { STATUS_FILTER_OPTIONS } from '@/lib/constants';
 import { useConfirm } from '@/components/ui/confirmationModal';
+
+// Redux Imports
+import {
+  selectAllPermissionDataList,
+  selectPermissionPagination,
+  selectPermissionSearchData,
+  selectPermissionModalOpen,
+  selectEditingPermission,
+} from './store/selector';
+import {
+  getAllPermissions,
+  setPermissionPagination,
+  setPermissionSearchData,
+  setModalOpen,
+  setEditingPermission,
+  createPermission,
+  updatePermission,
+  deletePermission,
+} from './store/slice';
 
 interface Permission {
   id: string;
@@ -54,58 +72,70 @@ const validationSchema = Yup.object().shape({
 export default function PermissionsCRUDPage() {
   const dispatch = useAppDispatch();
   const confirm = useConfirm();
-  const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
-  
-  // Search and filter states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | boolean>('all');
-  
-  // Local client-side pagination state
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
 
-  const fetchPermissions = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get('/permissions');
-      setPermissions(response.data);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to fetch permissions');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Redux Selectors
+  const permissionsData = useAppSelector(selectAllPermissionDataList);
+  const pagination = useAppSelector(selectPermissionPagination);
+  const { search: searchQuery, status: statusFilter } = useAppSelector(selectPermissionSearchData);
+  const modalOpen = useAppSelector(selectPermissionModalOpen);
+  const editingPermission = useAppSelector(selectEditingPermission);
 
   useEffect(() => {
-    fetchPermissions();
-  }, []);
+    dispatch(getAllPermissions({}));
+  }, [dispatch]);
 
   const handleOpenCreate = () => {
-    setEditingPermission(null);
-    setModalOpen(true);
+    dispatch(setEditingPermission(null));
+    dispatch(setModalOpen(true));
   };
 
   const handleOpenEdit = (permission: Permission) => {
-    setEditingPermission(permission);
-    setModalOpen(true);
+    dispatch(setEditingPermission(permission));
+    dispatch(setModalOpen(true));
   };
 
   const handleSubmit = async (values: any, { setSubmitting }: any) => {
     try {
+      const payload = {
+        name: values.name,
+        code: values.code,
+        is_active: values.is_active,
+      };
+
       if (editingPermission) {
-        await apiClient.patch(`/permissions/${editingPermission.id}`, values);
-        toast.success('Permission updated successfully');
+        dispatch(
+          updatePermission({
+            id: editingPermission.id,
+            data: payload,
+            onSuccess: () => {
+              toast.success('Permission updated successfully');
+              dispatch(setModalOpen(false));
+              dispatch(getAllPermissions({}));
+              dispatch(checkAuthStart());
+            },
+            onFailure: (err: any) => {
+              toast.error(err.message || 'Update failed');
+            },
+          })
+        );
       } else {
-        await apiClient.post('/permissions', values);
-        toast.success('Permission created successfully');
+        dispatch(
+          createPermission({
+            data: payload,
+            onSuccess: () => {
+              toast.success('Permission created successfully');
+              dispatch(setModalOpen(false));
+              dispatch(getAllPermissions({}));
+              dispatch(checkAuthStart());
+            },
+            onFailure: (err: any) => {
+              toast.error(err.message || 'Creation failed');
+            },
+          })
+        );
       }
-      setModalOpen(false);
-      fetchPermissions();
-      dispatch(checkAuthStart());
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Action failed');
+      toast.error('Action failed');
     } finally {
       setSubmitting(false);
     }
@@ -120,14 +150,20 @@ export default function PermissionsCRUDPage() {
       variant: 'danger',
     });
     if (!isConfirmed) return;
-    try {
-      await apiClient.delete(`/permissions/${id}`);
-      toast.success('Permission deleted successfully');
-      fetchPermissions();
-      dispatch(checkAuthStart());
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete permission');
-    }
+
+    dispatch(
+      deletePermission({
+        id,
+        onSuccess: () => {
+          toast.success('Permission deleted successfully');
+          dispatch(getAllPermissions({}));
+          dispatch(checkAuthStart());
+        },
+        onFailure: (err: any) => {
+          toast.error(err.message || 'Failed to delete permission');
+        },
+      })
+    );
   };
 
   // Columns definition for DataTableComponent
@@ -154,18 +190,22 @@ export default function PermissionsCRUDPage() {
           <CustomSwitch
             name={`perm-status-${row.original.id}`}
             checked={row.original.is_active}
-            onChange={async (e) => {
+            onChange={(e) => {
               const newVal = e.target.checked;
-              try {
-                await apiClient.patch(`/permissions/${row.original.id}`, {
-                  is_active: newVal,
-                });
-                toast.success('Permission status updated successfully');
-                fetchPermissions();
-                dispatch(checkAuthStart());
-              } catch (err: any) {
-                toast.error(err.response?.data?.message || 'Failed to update status');
-              }
+              dispatch(
+                updatePermission({
+                  id: row.original.id,
+                  data: { ...row.original, is_active: newVal },
+                  onSuccess: () => {
+                    toast.success('Permission status updated successfully');
+                    dispatch(getAllPermissions({}));
+                    dispatch(checkAuthStart());
+                  },
+                  onFailure: (err: any) => {
+                    toast.error(err.message || 'Failed to update status');
+                  },
+                })
+              );
             }}
           />
         ),
@@ -196,27 +236,25 @@ export default function PermissionsCRUDPage() {
         ),
       },
     ],
-    [permissions]
+    [dispatch]
   );
 
-  // Client-side filtering
-  const filteredPermissions = React.useMemo(() => {
-    return permissions.filter((p) => {
-      const matchesSearch =
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.code.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus =
-        statusFilter === 'all' ? true : p.is_active === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [permissions, searchQuery, statusFilter]);
+  // Fetch permissions with server-side filtering
+  const fetchWithFilters = (search: string, status: any) => {
+    const params: any = {};
+    if (search) params.search = search;
+    if (status !== 'all') params.is_active = status;
+    dispatch(getAllPermissions({ data: params }));
+  };
 
-  // Client-side pagination slicing
+  // Client-side pagination slicing (data already filtered by server)
+  const permissionsArray: Permission[] = Array.isArray(permissionsData) ? permissionsData : [];
+
   const slicedPermissions = React.useMemo(() => {
     const start = pagination.pageIndex * pagination.pageSize;
     const end = start + pagination.pageSize;
-    return filteredPermissions.slice(start, end);
-  }, [filteredPermissions, pagination]);
+    return permissionsArray.slice(start, end);
+  }, [permissionsArray, pagination]);
 
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
@@ -231,18 +269,25 @@ export default function PermissionsCRUDPage() {
               type="text"
               placeholder="Search by Name"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                dispatch(setPermissionSearchData({ search: val, status: statusFilter }));
+                fetchWithFilters(val, statusFilter);
+              }}
               className="w-full pl-10 pr-4 py-2 border border-custom hover:border-primary rounded-xl text-sm bg-white dark:bg-gray-800 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
             />
           </div>
-          
+
           <div className="w-40 shrink-0">
             <SelectDropDown
               name="status-filter"
               options={STATUS_FILTER_OPTIONS as any}
               value={STATUS_FILTER_OPTIONS.find((opt) => opt.value === statusFilter) as any}
               onChange={(opt: any) => {
-                if (opt) setStatusFilter(opt.value);
+                if (opt) {
+                  dispatch(setPermissionSearchData({ search: searchQuery, status: opt.value }));
+                  fetchWithFilters(searchQuery, opt.value);
+                }
               }}
               isSearchable={false}
               isClearable={false}
@@ -254,9 +299,8 @@ export default function PermissionsCRUDPage() {
           <LoadingButton
             variant="custom"
             onClick={() => {
-              setSearchQuery('');
-              setStatusFilter('all');
-              fetchPermissions();
+              dispatch(setPermissionSearchData({ search: '', status: 'all' }));
+              dispatch(getAllPermissions({}));
             }}
             className="p-2.5 border border-custom rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 transition"
             title="Refresh Data"
@@ -275,25 +319,19 @@ export default function PermissionsCRUDPage() {
       </div>
 
       <div className="flex-1 flex flex-col min-h-0">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : (
-          <DataTableComponent
-            columns={columns}
-            data={slicedPermissions}
-            pagination={pagination}
-            setPagination={setPagination}
-            totalRows={filteredPermissions.length}
-          />
-        )}
+        <DataTableComponent
+          columns={columns}
+          data={slicedPermissions}
+          pagination={pagination}
+          setPagination={(newPag: any) => dispatch(setPermissionPagination(newPag))}
+          totalRows={permissionsArray.length}
+        />
       </div>
 
       {/* Modal Dialog using GenericModal & RenderFields */}
       <GenericModal
         showModal={modalOpen}
-        closeModal={() => setModalOpen(false)}
+        closeModal={() => dispatch(setModalOpen(false))}
         modalTitle={editingPermission ? 'Update Permission' : 'Create Permission'}
         modalBody={
           <Formik
@@ -303,6 +341,7 @@ export default function PermissionsCRUDPage() {
               is_active: editingPermission ? editingPermission.is_active : true,
             }}
             validationSchema={validationSchema}
+            enableReinitialize={true}
             onSubmit={handleSubmit}
           >
             {({ values, errors, touched, handleBlur, setFieldValue, isSubmitting }) => (
@@ -317,11 +356,11 @@ export default function PermissionsCRUDPage() {
                   columns={1}
                 />
 
-                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-gray-700">
+                <div className="flex justify-end space-x-3 pt-4 border-t dark:border-gray-700">
                   <LoadingButton
                     type="button"
                     variant="secondary"
-                    onClick={() => setModalOpen(false)}
+                    onClick={() => dispatch(setModalOpen(false))}
                   >
                     Cancel
                   </LoadingButton>

@@ -83,8 +83,13 @@ const DataTableComponent = ({
           </thead>
           <tbody className="divide-y divide-custom">
             {table.getRowModel()?.rows?.length > 0 ? (
-              table.getRowModel()?.rows?.map((row) => (
-                <tr key={row.id} className="table-row hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition">
+              table.getRowModel()?.rows?.map((row, index) => (
+                <tr 
+                  key={row.id} 
+                  className={`table-row hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition ${
+                    index % 2 === 1 ? 'bg-custom-primary/5 dark:bg-custom-primary/5' : ''
+                  }`}
+                >
                   {row.getVisibleCells()?.map((cell) => (
                     <td key={cell.id} className="table-cell p-4 text-sm font-semibold">
                       {flexRender(

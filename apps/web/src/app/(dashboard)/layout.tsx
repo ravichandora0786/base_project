@@ -5,6 +5,7 @@ import { useAppSelector } from '@/store';
 import { useRouter } from 'next/navigation';
 import { DynamicSidebar } from '@/components/common/DynamicSidebar';
 import { Header } from '@/components/common/Header';
+import GlobalLoadingOverlay from '@/components/ui/globalLoadingOverlay';
 
 export default function DashboardLayout({
   children,
@@ -34,6 +35,9 @@ export default function DashboardLayout({
           </div>
         </main>
       </div>
+
+      {/* Full-screen loading overlay */}
+      <GlobalLoadingOverlay />
     </div>
   );
 }

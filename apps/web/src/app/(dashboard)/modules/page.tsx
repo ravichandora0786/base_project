@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { apiClient } from '@/lib/api/client';
+import React, { useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
@@ -13,10 +12,31 @@ import GenericModal from '@/components/ui/genericModal';
 import SelectDropDown from '@/components/ui/selectDropDown';
 import { ColumnDef } from '@tanstack/react-table';
 import CustomSwitch from '@/components/ui/customSwitch';
-import { useAppDispatch } from '@/store';
+import { useAppDispatch, useAppSelector } from '@/store';
 import { checkAuthStart } from '@/features/auth/store/auth.slice';
 import { STATUS_FILTER_OPTIONS } from '@/lib/constants';
 import { useConfirm } from '@/components/ui/confirmationModal';
+import { apiClient } from '@/lib/api/client';
+
+// Redux Imports
+import { selectGlobalLoading } from '@/store/common/selector';
+import {
+  selectAllModuleDataList,
+  selectModulePagination,
+  selectModuleSearchData,
+  selectModuleModalOpen,
+  selectEditingModule,
+} from './store/selector';
+import {
+  getAllModules,
+  setModulePagination,
+  setModuleSearchData,
+  setModalOpen,
+  setEditingModule,
+  createModule,
+  updateModule,
+  deleteModule,
+} from './store/slice';
 
 interface AppModule {
   id: string;
@@ -70,42 +90,26 @@ const validationSchema = Yup.object().shape({
 export default function ModulesCRUDPage() {
   const dispatch = useAppDispatch();
   const confirm = useConfirm();
-  const [modules, setModules] = useState<AppModule[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Search and filter states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | boolean>('all');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingModule, setEditingModule] = useState<AppModule | null>(null);
 
-  // Local client-side pagination state
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
-
-  const fetchModules = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get('/modules');
-      setModules(response.data);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to fetch modules');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Redux Selectors
+  const modulesData = useAppSelector(selectAllModuleDataList);
+  const pagination = useAppSelector(selectModulePagination);
+  const { search: searchQuery, status: statusFilter } = useAppSelector(selectModuleSearchData);
+  const modalOpen = useAppSelector(selectModuleModalOpen);
+  const editingModule = useAppSelector(selectEditingModule);
 
   useEffect(() => {
-    fetchModules();
-  }, []);
+    dispatch(getAllModules({}));
+  }, [dispatch]);
 
   const handleOpenCreate = () => {
-    setEditingModule(null);
-    setModalOpen(true);
+    dispatch(setEditingModule(null));
+    dispatch(setModalOpen(true));
   };
 
   const handleOpenEdit = (mod: AppModule) => {
-    setEditingModule(mod);
-    setModalOpen(true);
+    dispatch(setEditingModule(mod));
+    dispatch(setModalOpen(true));
   };
 
   const handleSubmit = async (values: any, { setSubmitting }: any) => {
@@ -116,17 +120,39 @@ export default function ModulesCRUDPage() {
       };
 
       if (editingModule) {
-        await apiClient.patch(`/modules/${editingModule.id}`, payload);
-        toast.success('Module updated successfully');
+        dispatch(
+          updateModule({
+            id: editingModule.id,
+            data: payload,
+            onSuccess: () => {
+              toast.success('Module updated successfully');
+              dispatch(setModalOpen(false));
+              dispatch(getAllModules({}));
+              dispatch(checkAuthStart());
+            },
+            onFailure: (err: any) => {
+              toast.error(err.message || 'Update failed');
+            },
+          })
+        );
       } else {
-        await apiClient.post('/modules', payload);
-        toast.success('Module created successfully');
+        dispatch(
+          createModule({
+            data: payload,
+            onSuccess: () => {
+              toast.success('Module created successfully');
+              dispatch(setModalOpen(false));
+              dispatch(getAllModules({}));
+              dispatch(checkAuthStart());
+            },
+            onFailure: (err: any) => {
+              toast.error(err.message || 'Creation failed');
+            },
+          })
+        );
       }
-      setModalOpen(false);
-      fetchModules();
-      dispatch(checkAuthStart());
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Action failed');
+      toast.error('Action failed');
     } finally {
       setSubmitting(false);
     }
@@ -141,14 +167,20 @@ export default function ModulesCRUDPage() {
       variant: 'danger',
     });
     if (!isConfirmed) return;
-    try {
-      await apiClient.delete(`/modules/${id}`);
-      toast.success('Module deleted successfully');
-      fetchModules();
-      dispatch(checkAuthStart());
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete module');
-    }
+
+    dispatch(
+      deleteModule({
+        id,
+        onSuccess: () => {
+          toast.success('Module deleted successfully');
+          dispatch(getAllModules({}));
+          dispatch(checkAuthStart());
+        },
+        onFailure: (err: any) => {
+          toast.error(err.message || 'Failed to delete module');
+        },
+      })
+    );
   };
 
   // Columns definition for DataTableComponent
@@ -181,18 +213,22 @@ export default function ModulesCRUDPage() {
           <CustomSwitch
             name={`mod-status-${row.original.id}`}
             checked={row.original.is_active}
-            onChange={async (e) => {
+            onChange={(e) => {
               const newVal = e.target.checked;
-              try {
-                await apiClient.patch(`/modules/${row.original.id}`, {
-                  is_active: newVal,
-                });
-                toast.success('Module status updated successfully');
-                fetchModules();
-                dispatch(checkAuthStart());
-              } catch (err: any) {
-                toast.error(err.response?.data?.message || 'Failed to update status');
-              }
+              dispatch(
+                updateModule({
+                  id: row.original.id,
+                  data: { ...row.original, is_active: newVal },
+                  onSuccess: () => {
+                    toast.success('Module status updated successfully');
+                    dispatch(getAllModules({}));
+                    dispatch(checkAuthStart());
+                  },
+                  onFailure: (err: any) => {
+                    toast.error(err.message || 'Failed to update status');
+                  },
+                })
+              );
             }}
           />
         ),
@@ -224,27 +260,25 @@ export default function ModulesCRUDPage() {
         ),
       },
     ],
-    [modules]
+    [dispatch]
   );
 
-  // Client-side filtering
-  const filteredModules = React.useMemo(() => {
-    return modules.filter((m) => {
-      const matchesSearch =
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.display_name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus =
-        statusFilter === 'all' ? true : m.is_active === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [modules, searchQuery, statusFilter]);
+  // Fetch modules with server-side filtering
+  const fetchWithFilters = (search: string, status: any) => {
+    const params: any = {};
+    if (search) params.search = search;
+    if (status !== 'all') params.is_active = status;
+    dispatch(getAllModules({ data: params }));
+  };
 
-  // Client-side pagination slicing
+  // Client-side pagination slicing (data already filtered by server)
+  const modulesArray: AppModule[] = Array.isArray(modulesData) ? modulesData : [];
+
   const slicedModules = React.useMemo(() => {
     const start = pagination.pageIndex * pagination.pageSize;
     const end = start + pagination.pageSize;
-    return filteredModules.slice(start, end);
-  }, [filteredModules, pagination]);
+    return modulesArray.slice(start, end);
+  }, [modulesArray, pagination]);
 
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
@@ -259,18 +293,25 @@ export default function ModulesCRUDPage() {
               type="text"
               placeholder="Search by Name"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                dispatch(setModuleSearchData({ search: val, status: statusFilter }));
+                fetchWithFilters(val, statusFilter);
+              }}
               className="w-full pl-10 pr-4 py-2 border border-custom hover:border-primary rounded-xl text-sm bg-white dark:bg-gray-800 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
             />
           </div>
-          
+
           <div className="w-40 shrink-0">
             <SelectDropDown
               name="status-filter"
               options={STATUS_FILTER_OPTIONS as any}
               value={STATUS_FILTER_OPTIONS.find((opt) => opt.value === statusFilter) as any}
               onChange={(opt: any) => {
-                if (opt) setStatusFilter(opt.value);
+                if (opt) {
+                  dispatch(setModuleSearchData({ search: searchQuery, status: opt.value }));
+                  fetchWithFilters(searchQuery, opt.value);
+                }
               }}
               isSearchable={false}
               isClearable={false}
@@ -282,9 +323,8 @@ export default function ModulesCRUDPage() {
           <LoadingButton
             variant="custom"
             onClick={() => {
-              setSearchQuery('');
-              setStatusFilter('all');
-              fetchModules();
+              dispatch(setModuleSearchData({ search: '', status: 'all' }));
+              dispatch(getAllModules({}));
             }}
             className="p-2.5 border border-custom rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 transition"
             title="Refresh Data"
@@ -303,36 +343,31 @@ export default function ModulesCRUDPage() {
       </div>
 
       <div className="flex-1 flex flex-col min-h-0">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : (
-          <DataTableComponent
-            columns={columns}
-            data={slicedModules}
-            pagination={pagination}
-            setPagination={setPagination}
-            totalRows={filteredModules.length}
-          />
-        )}
+        <DataTableComponent
+          columns={columns}
+          data={slicedModules}
+          pagination={pagination}
+          setPagination={(newPag: any) => dispatch(setModulePagination(newPag))}
+          totalRows={modulesArray.length}
+        />
       </div>
 
       {/* Modal Dialog using GenericModal & RenderFields */}
       <GenericModal
         showModal={modalOpen}
-        closeModal={() => setModalOpen(false)}
-        modalTitle={editingModule ? 'Update App Module' : 'Create App Module'}
+        closeModal={() => dispatch(setModalOpen(false))}
+        modalTitle={editingModule ? 'Update Module' : 'Create Module'}
         modalBody={
           <Formik
             initialValues={{
               name: editingModule ? editingModule.name : '',
               display_name: editingModule ? editingModule.display_name : '',
-              route: (editingModule && editingModule.route) ? editingModule.route : '',
+              route: editingModule ? (editingModule.route || '') : '',
               sort_order: editingModule ? editingModule.sort_order : 0,
               is_active: editingModule ? editingModule.is_active : true,
             }}
             validationSchema={validationSchema}
+            enableReinitialize={true}
             onSubmit={handleSubmit}
           >
             {({ values, errors, touched, handleBlur, setFieldValue, isSubmitting }) => (
@@ -344,14 +379,14 @@ export default function ModulesCRUDPage() {
                   touched={touched}
                   setFieldValue={setFieldValue}
                   handleBlur={handleBlur}
-                  columns={1}
+                  columns={2}
                 />
 
                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-gray-700">
                   <LoadingButton
                     type="button"
                     variant="secondary"
-                    onClick={() => setModalOpen(false)}
+                    onClick={() => dispatch(setModalOpen(false))}
                   >
                     Cancel
                   </LoadingButton>

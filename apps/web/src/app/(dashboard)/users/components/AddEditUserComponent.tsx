@@ -18,6 +18,7 @@ import {
   PASSWORD_ERROR,
 } from '@/lib/constants';
 import { FiArrowLeft, FiCamera, FiSave } from 'react-icons/fi';
+import { getInitials } from '@/lib/utils';
 
 interface AddEditUserComponentProps {
   userId?: string | null;
@@ -379,7 +380,7 @@ export default function AddEditUserComponent({ userId, isEdit }: AddEditUserComp
               ) : initialValues.profile_image ? (
                 <img src={initialValues.profile_image} alt="User profile" className="w-full h-full object-cover" />
               ) : (
-                (initialValues.name || 'U').slice(0, 2).toUpperCase()
+                getInitials(initialValues.name || 'U')
               )}
             </div>
             <button

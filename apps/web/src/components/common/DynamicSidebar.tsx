@@ -11,6 +11,7 @@ import {
 } from 'react-pro-sidebar';
 import * as Icons from 'react-icons/fi';
 import { apiClient } from '@/lib/api/client';
+import { getInitials } from '@/lib/utils';
 
 interface MenuItemType {
   name: string;
@@ -70,11 +71,7 @@ export function DynamicSidebar({ collapsed = false }: SidebarProps) {
 
   const allowedMenuItems = menuItems.filter(item => hasPermission(item.name));
 
-  const shortName = user?.name
-    ? user.name.slice(0, 2).toUpperCase()
-    : user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : 'U';
+  const shortName = getInitials(user?.name || user?.email?.split('@')[0]);
 
   if (!mounted) {
     return <aside className="w-64 bg-custom-card border-r border-custom h-screen sticky top-0" />;

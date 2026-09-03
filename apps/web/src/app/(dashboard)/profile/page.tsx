@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { apiClient } from '@/lib/api/client';
+import React, { useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
@@ -10,8 +9,7 @@ import { checkAuthStart } from '@/features/auth/store/auth.slice';
 import LoadingButton from '@/components/ui/loadingButton';
 import GenericModal from '@/components/ui/genericModal';
 import {
-  FiEdit2, FiSave, FiLock, FiEye, FiEyeOff,
-  FiCheckCircle, FiXCircle, FiCamera, FiX,
+  FiEdit2, FiSave, FiLock, FiCamera, FiX, FiCheckCircle, FiXCircle,
 } from 'react-icons/fi';
 import {
   GENDER_OPTIONS,
@@ -19,6 +17,32 @@ import {
   PASSWORD_REGEX, PASSWORD_ERROR,
 } from '@/lib/constants';
 import RenderFields from '@/components/ui/renderFields';
+import { getInitials } from '@/lib/utils';
+
+// Redux Imports
+import { selectGlobalLoading } from '@/store/common/selector';
+import {
+  selectActiveTab,
+  selectProfileData,
+  selectEditingPersonal,
+  selectEditingAddress,
+  selectImgModalOpen,
+  selectImgPreview,
+  selectImgFile,
+  selectImgUploading,
+} from './store/selector';
+import {
+  setActiveTab,
+  setEditingPersonal,
+  setEditingAddress,
+  setImgModalOpen,
+  setImgPreview,
+  setImgFile,
+  getProfile,
+  updateProfileData,
+  changePassword,
+  uploadProfileImage,
+} from './store/slice';
 
 // --- Schemas ------------------------------------------------------------------
 const personalSchema = Yup.object({
@@ -100,7 +124,7 @@ function SectionCard({ children }: { children: React.ReactNode }) {
 }
 
 // --- Types --------------------------------------------------------------------
-type ActiveTab = 'profile' | 'password';
+type ActiveTabType = 'profile' | 'password';
 
 interface AddressData {
   street?: string | null;
@@ -127,19 +151,17 @@ export default function ProfilePage() {
   const dispatch = useAppDispatch();
   const { user: authUser } = useAppSelector((state) => state.auth);
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('profile');
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Redux Selectors
+  const activeTab = useAppSelector(selectActiveTab) as ActiveTabType;
+  const profile = useAppSelector(selectProfileData) as ProfileData | null;
+  const loading = useAppSelector(selectGlobalLoading);
+  const editingPersonal = useAppSelector(selectEditingPersonal);
+  const editingAddress = useAppSelector(selectEditingAddress);
+  const imgModalOpen = useAppSelector(selectImgModalOpen);
+  const imgPreview = useAppSelector(selectImgPreview);
+  const imgFile = useAppSelector(selectImgFile);
+  const imgUploading = useAppSelector(selectImgUploading);
 
-  // Separate editing flags per section
-  const [editingPersonal, setEditingPersonal] = useState(false);
-  const [editingAddress, setEditingAddress] = useState(false);
-
-  // Image upload modal
-  const [imgModalOpen, setImgModalOpen] = useState(false);
-  const [imgPreview, setImgPreview] = useState<string | null>(null);
-  const [imgFile, setImgFile] = useState<File | null>(null);
-  const [imgUploading, setImgUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const personalFields = [
@@ -230,110 +252,110 @@ export default function ProfilePage() {
     },
   ];
 
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-      const res = await apiClient.get(`/users/${authUser?.id}`);
-      setProfile(res.data);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to load profile');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (authUser?.id) fetchProfile();
-  }, [authUser?.id]);
+    if (authUser?.id) {
+      dispatch(getProfile({ id: authUser.id }));
+    }
+  }, [authUser?.id, dispatch]);
 
   // -- Save Personal Info ----------------------------------------------------
-  const handleSavePersonal = async (values: any, { setSubmitting }: any) => {
-    try {
-      await apiClient.patch('/auth/profile', {
-        name: values.name,
-        phone: values.phone || null,
-        gender: values.gender || null,
-      });
-      toast.success('Personal info updated');
-      setEditingPersonal(false);
-      fetchProfile();
-      dispatch(checkAuthStart());
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update');
-    } finally {
-      setSubmitting(false);
-    }
+  const handleSavePersonal = (values: any, { setSubmitting }: any) => {
+    if (!profile) return;
+    dispatch(
+      updateProfileData({
+        data: {
+          name: values.name,
+          phone: values.phone || null,
+          gender: values.gender || null,
+        },
+        onSuccess: () => {
+          toast.success('Personal info updated');
+          dispatch(setEditingPersonal(false));
+          dispatch(getProfile({ id: profile.id }));
+          dispatch(checkAuthStart());
+        },
+        onFailure: (err: any) => {
+          toast.error(err.message || 'Failed to update');
+        },
+      })
+    );
+    setSubmitting(false);
   };
 
   // -- Save Address ----------------------------------------------------------
-  const handleSaveAddress = async (values: any, { setSubmitting }: any) => {
-    try {
-      await apiClient.patch('/auth/profile', {
-        address: {
-          street: values.street || null,
-          city: values.city || null,
-          state: values.state || null,
-          country: values.country || null,
-          postal_code: values.postal_code || null,
+  const handleSaveAddress = (values: any, { setSubmitting }: any) => {
+    if (!profile) return;
+    dispatch(
+      updateProfileData({
+        data: {
+          address: {
+            street: values.street || null,
+            city: values.city || null,
+            state: values.state || null,
+            country: values.country || null,
+            postal_code: values.postal_code || null,
+          },
         },
-      });
-      toast.success('Address updated');
-      setEditingAddress(false);
-      fetchProfile();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update address');
-    } finally {
-      setSubmitting(false);
-    }
+        onSuccess: () => {
+          toast.success('Address updated');
+          dispatch(setEditingAddress(false));
+          dispatch(getProfile({ id: profile.id }));
+        },
+        onFailure: (err: any) => {
+          toast.error(err.message || 'Failed to update address');
+        },
+      })
+    );
+    setSubmitting(false);
   };
 
   // -- Change Password -------------------------------------------------------
-  const handleChangePassword = async (values: any, { setSubmitting, resetForm }: any) => {
-    try {
-      await apiClient.patch('/auth/change-password', {
-        oldPassword: values.oldPassword,
-        newPassword: values.newPassword,
-      });
-      toast.success('Password changed successfully');
-      resetForm();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to change password');
-    } finally {
-      setSubmitting(false);
-    }
+  const handleChangePassword = (values: any, { setSubmitting, resetForm }: any) => {
+    dispatch(
+      changePassword({
+        data: {
+          oldPassword: values.oldPassword,
+          newPassword: values.newPassword,
+        },
+        onSuccess: () => {
+          toast.success('Password changed successfully');
+          resetForm();
+        },
+        onFailure: (err: any) => {
+          toast.error(err.message || 'Failed to change password');
+        },
+      })
+    );
+    setSubmitting(false);
   };
 
   // -- Image Upload ---------------------------------------------------------
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setImgFile(file);
-    setImgPreview(URL.createObjectURL(file));
+    dispatch(setImgFile(file));
+    dispatch(setImgPreview(URL.createObjectURL(file)));
   };
 
-  const handleImageUpload = async () => {
-    if (!imgFile) return;
-    try {
-      setImgUploading(true);
-      const formData = new FormData();
-      formData.append('profile_image', imgFile);
-      await apiClient.patch('/auth/profile-image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      toast.success('Profile image updated');
-      setImgModalOpen(false);
-      setImgPreview(null);
-      setImgFile(null);
-      fetchProfile();
-      dispatch(checkAuthStart());
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Image upload failed');
-    } finally {
-      setImgUploading(false);
-    }
+  const handleImageUpload = () => {
+    if (!imgFile || !profile) return;
+    dispatch(
+      uploadProfileImage({
+        id: profile.id,
+        file: imgFile,
+        onSuccess: () => {
+          toast.success('Profile image updated');
+          dispatch(setImgModalOpen(false));
+          dispatch(setImgPreview(null));
+          dispatch(setImgFile(null));
+          dispatch(getProfile({ id: profile.id }));
+          dispatch(checkAuthStart());
+        },
+      })
+    );
   };
 
-  const navItems: { key: ActiveTab; label: string; icon: React.ReactNode }[] = [
+  const navItems: { key: ActiveTabType; label: string; icon: React.ReactNode }[] = [
     { key: 'profile', label: 'My Profile', icon: <FiEdit2 className="w-4 h-4" /> },
     { key: 'password', label: 'Change Password', icon: <FiLock className="w-4 h-4" /> },
   ];
@@ -356,7 +378,11 @@ export default function ProfilePage() {
           {navItems.map((item) => (
             <button
               key={item.key}
-              onClick={() => { setActiveTab(item.key); setEditingPersonal(false); setEditingAddress(false); }}
+              onClick={() => {
+                dispatch(setActiveTab(item.key));
+                dispatch(setEditingPersonal(false));
+                dispatch(setEditingAddress(false));
+              }}
               className={[
                 'w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold transition text-left border-b border-custom last:border-0',
                 activeTab === item.key
@@ -373,7 +399,6 @@ export default function ProfilePage() {
 
       {/* -- Right Content -- */}
       <div className="flex-1 min-w-0 overflow-auto space-y-5">
-
         {/* --- MY PROFILE --- */}
         {activeTab === 'profile' && profile && (
           <>
@@ -387,12 +412,16 @@ export default function ProfilePage() {
                       {profile.profile_image ? (
                         <img src={profile.profile_image} alt={profile.name} className="w-full h-full object-cover" />
                       ) : (
-                        profile.name.slice(0, 2).toUpperCase()
+                        getInitials(profile.name)
                       )}
                     </div>
                     {/* Pencil overlay */}
                     <button
-                      onClick={() => { setImgPreview(null); setImgFile(null); setImgModalOpen(true); }}
+                      onClick={() => {
+                        dispatch(setImgPreview(null));
+                        dispatch(setImgFile(null));
+                        dispatch(setImgModalOpen(true));
+                      }}
                       className="absolute inset-0 w-16 h-16 rounded-2xl bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
                       title="Change Profile Picture"
                     >
@@ -404,10 +433,17 @@ export default function ProfilePage() {
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-white">{profile.name}</h2>
                     <p className="text-sm text-custom-muted mt-0.5 capitalize">{profile.role?.name || 'User'}</p>
                     <div className="flex items-center gap-1.5 mt-1.5">
-                      {profile.is_active
-                        ? <><FiCheckCircle className="w-3.5 h-3.5 text-green-500" /><span className="text-xs font-bold text-green-600 dark:text-green-400">Active</span></>
-                        : <><FiXCircle className="w-3.5 h-3.5 text-red-500" /><span className="text-xs font-bold text-red-600 dark:text-red-400">Inactive</span></>
-                      }
+                      {profile.is_active ? (
+                        <>
+                          <FiCheckCircle className="w-3.5 h-3.5 text-green-500" />
+                          <span className="text-xs font-bold text-green-600 dark:text-green-400">Active</span>
+                        </>
+                      ) : (
+                        <>
+                          <FiXCircle className="w-3.5 h-3.5 text-red-500" />
+                          <span className="text-xs font-bold text-red-600 dark:text-red-400">Inactive</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -420,7 +456,10 @@ export default function ProfilePage() {
                 <h3 className="text-base font-bold text-gray-900 dark:text-white">Personal Information</h3>
                 {!editingPersonal && (
                   <button
-                    onClick={() => { setEditingPersonal(true); setEditingAddress(false); }}
+                    onClick={() => {
+                      dispatch(setEditingPersonal(true));
+                      dispatch(setEditingAddress(false));
+                    }}
                     className="flex items-center gap-1.5 text-xs font-bold text-custom-primary hover:opacity-80 transition"
                   >
                     <FiEdit2 className="w-3.5 h-3.5" />
@@ -440,6 +479,7 @@ export default function ProfilePage() {
                   initialValues={{ name: profile.name || '', phone: profile.phone || '', gender: profile.gender || '' }}
                   validationSchema={personalSchema}
                   onSubmit={handleSavePersonal}
+                  enableReinitialize={true}
                 >
                   {({ values, errors, touched, setFieldValue, handleBlur, isSubmitting }) => (
                     <Form className="p-6 space-y-4">
@@ -456,7 +496,7 @@ export default function ProfilePage() {
                         <LoadingButton
                           type="button"
                           variant="secondary"
-                          onClick={() => setEditingPersonal(false)}
+                          onClick={() => dispatch(setEditingPersonal(false))}
                           className="px-5 py-2.5 font-bold"
                         >
                           Cancel
@@ -477,7 +517,10 @@ export default function ProfilePage() {
                 <h3 className="text-base font-bold text-gray-900 dark:text-white">Address</h3>
                 {!editingAddress && (
                   <button
-                    onClick={() => { setEditingAddress(true); setEditingPersonal(false); }}
+                    onClick={() => {
+                      dispatch(setEditingAddress(true));
+                      dispatch(setEditingPersonal(false));
+                    }}
                     className="flex items-center gap-1.5 text-xs font-bold text-custom-primary hover:opacity-80 transition"
                   >
                     <FiEdit2 className="w-3.5 h-3.5" />
@@ -504,6 +547,7 @@ export default function ProfilePage() {
                   }}
                   validationSchema={addressSchema}
                   onSubmit={handleSaveAddress}
+                  enableReinitialize={true}
                 >
                   {({ values, errors, touched, setFieldValue, handleBlur, isSubmitting }) => (
                     <Form className="p-6 space-y-4">
@@ -520,7 +564,7 @@ export default function ProfilePage() {
                         <LoadingButton
                           type="button"
                           variant="secondary"
-                          onClick={() => setEditingAddress(false)}
+                          onClick={() => dispatch(setEditingAddress(false))}
                           className="px-5 py-2.5 font-bold"
                         >
                           Cancel
@@ -582,7 +626,11 @@ export default function ProfilePage() {
       />
       <GenericModal
         showModal={imgModalOpen}
-        closeModal={() => { setImgModalOpen(false); setImgPreview(null); setImgFile(null); }}
+        closeModal={() => {
+          dispatch(setImgModalOpen(false));
+          dispatch(setImgPreview(null));
+          dispatch(setImgFile(null));
+        }}
         modalTitle="Update Profile Picture"
         modalBody={
           <div className="space-y-5">
@@ -619,7 +667,11 @@ export default function ProfilePage() {
             <div className="flex justify-end gap-3 pt-4 border-t border-custom">
               <LoadingButton
                 variant="secondary"
-                onClick={() => { setImgModalOpen(false); setImgPreview(null); setImgFile(null); }}
+                onClick={() => {
+                  dispatch(setImgModalOpen(false));
+                  dispatch(setImgPreview(null));
+                  dispatch(setImgFile(null));
+                }}
               >
                 Cancel
               </LoadingButton>
@@ -638,4 +690,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

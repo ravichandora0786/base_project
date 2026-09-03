@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { apiClient } from '@/lib/api/client';
+import React, { useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
@@ -14,10 +13,30 @@ import GenericModal from '@/components/ui/genericModal';
 import SelectDropDown from '@/components/ui/selectDropDown';
 import { ColumnDef } from '@tanstack/react-table';
 import CustomSwitch from '@/components/ui/customSwitch';
-import { useAppDispatch } from '@/store';
+import { useAppDispatch, useAppSelector } from '@/store';
 import { checkAuthStart } from '@/features/auth/store/auth.slice';
 import { STATUS_FILTER_OPTIONS } from '@/lib/constants';
 import { useConfirm } from '@/components/ui/confirmationModal';
+
+// Redux Imports
+import { selectGlobalLoading } from '@/store/common/selector';
+import {
+  selectAllRoleDataList,
+  selectRolePagination,
+  selectRoleSearchData,
+  selectRoleModalOpen,
+  selectEditingRole,
+} from './store/selector';
+import {
+  getAllRoles,
+  setRolePagination,
+  setRoleSearchData,
+  setModalOpen,
+  setEditingRole,
+  createRole,
+  updateRole,
+  deleteRole,
+} from './store/slice';
 
 interface Role {
   id: string;
@@ -49,58 +68,69 @@ export default function RolesCRUDPage() {
   const dispatch = useAppDispatch();
   const confirm = useConfirm();
   const router = useRouter();
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Search and filter states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | boolean>('all');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingRole, setEditingRole] = useState<Role | null>(null);
 
-  // Local client-side pagination state
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
-
-  const fetchRoles = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get('/roles');
-      setRoles(response.data);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to fetch roles');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Redux Selectors
+  const rolesData = useAppSelector(selectAllRoleDataList);
+  const pagination = useAppSelector(selectRolePagination);
+  const { search: searchQuery, status: statusFilter } = useAppSelector(selectRoleSearchData);
+  const modalOpen = useAppSelector(selectRoleModalOpen);
+  const editingRole = useAppSelector(selectEditingRole);
 
   useEffect(() => {
-    fetchRoles();
-  }, []);
+    dispatch(getAllRoles({}));
+  }, [dispatch]);
 
   const handleOpenCreate = () => {
-    setEditingRole(null);
-    setModalOpen(true);
+    dispatch(setEditingRole(null));
+    dispatch(setModalOpen(true));
   };
 
   const handleOpenEdit = (role: Role) => {
-    setEditingRole(role);
-    setModalOpen(true);
+    dispatch(setEditingRole(role));
+    dispatch(setModalOpen(true));
   };
 
   const handleSubmit = async (values: any, { setSubmitting }: any) => {
     try {
+      const payload = {
+        name: values.name,
+        is_active: values.is_active,
+      };
+
       if (editingRole) {
-        await apiClient.patch(`/roles/${editingRole.id}`, values);
-        toast.success('Role updated successfully');
+        dispatch(
+          updateRole({
+            id: editingRole.id,
+            data: payload,
+            onSuccess: () => {
+              toast.success('Role updated successfully');
+              dispatch(setModalOpen(false));
+              dispatch(getAllRoles({}));
+              dispatch(checkAuthStart());
+            },
+            onFailure: (err: any) => {
+              toast.error(err.message || 'Update failed');
+            },
+          })
+        );
       } else {
-        await apiClient.post('/roles', values);
-        toast.success('Role created successfully');
+        dispatch(
+          createRole({
+            data: payload,
+            onSuccess: () => {
+              toast.success('Role created successfully');
+              dispatch(setModalOpen(false));
+              dispatch(getAllRoles({}));
+              dispatch(checkAuthStart());
+            },
+            onFailure: (err: any) => {
+              toast.error(err.message || 'Creation failed');
+            },
+          })
+        );
       }
-      setModalOpen(false);
-      fetchRoles();
-      dispatch(checkAuthStart());
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Action failed');
+      toast.error('Action failed');
     } finally {
       setSubmitting(false);
     }
@@ -115,14 +145,20 @@ export default function RolesCRUDPage() {
       variant: 'danger',
     });
     if (!isConfirmed) return;
-    try {
-      await apiClient.delete(`/roles/${id}`);
-      toast.success('Role deleted successfully');
-      fetchRoles();
-      dispatch(checkAuthStart());
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete role');
-    }
+
+    dispatch(
+      deleteRole({
+        id,
+        onSuccess: () => {
+          toast.success('Role deleted successfully');
+          dispatch(getAllRoles({}));
+          dispatch(checkAuthStart());
+        },
+        onFailure: (err: any) => {
+          toast.error(err.message || 'Failed to delete role');
+        },
+      })
+    );
   };
 
   // Columns definition for DataTableComponent
@@ -140,18 +176,22 @@ export default function RolesCRUDPage() {
           <CustomSwitch
             name={`role-status-${row.original.id}`}
             checked={row.original.is_active}
-            onChange={async (e) => {
+            onChange={(e) => {
               const newVal = e.target.checked;
-              try {
-                await apiClient.patch(`/roles/${row.original.id}`, {
-                  is_active: newVal,
-                });
-                toast.success('Role status updated successfully');
-                fetchRoles();
-                dispatch(checkAuthStart());
-              } catch (err: any) {
-                toast.error(err.response?.data?.message || 'Failed to update status');
-              }
+              dispatch(
+                updateRole({
+                  id: row.original.id,
+                  data: { name: row.original.name, is_active: newVal },
+                  onSuccess: () => {
+                    toast.success('Role status updated successfully');
+                    dispatch(getAllRoles({}));
+                    dispatch(checkAuthStart());
+                  },
+                  onFailure: (err: any) => {
+                    toast.error(err.message || 'Failed to update status');
+                  },
+                })
+              );
             }}
           />
         ),
@@ -192,24 +232,25 @@ export default function RolesCRUDPage() {
         ),
       },
     ],
-    [roles]
+    [dispatch, router]
   );
 
-  // Client-side filtering
-  const filteredRoles = React.useMemo(() => {
-    return roles.filter((r) => {
-      const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === 'all' ? true : r.is_active === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [roles, searchQuery, statusFilter]);
+  // Fetch roles with server-side filtering
+  const fetchWithFilters = (search: string, status: any) => {
+    const params: any = {};
+    if (search) params.search = search;
+    if (status !== 'all') params.is_active = status;
+    dispatch(getAllRoles({ data: params }));
+  };
 
-  // Client-side pagination slicing
+  // Client-side pagination slicing (data already filtered by server)
+  const rolesArray: Role[] = Array.isArray(rolesData) ? rolesData : [];
+
   const slicedRoles = React.useMemo(() => {
     const start = pagination.pageIndex * pagination.pageSize;
     const end = start + pagination.pageSize;
-    return filteredRoles.slice(start, end);
-  }, [filteredRoles, pagination]);
+    return rolesArray.slice(start, end);
+  }, [rolesArray, pagination]);
 
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
@@ -224,18 +265,25 @@ export default function RolesCRUDPage() {
               type="text"
               placeholder="Search by Name"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                dispatch(setRoleSearchData({ search: val, status: statusFilter }));
+                fetchWithFilters(val, statusFilter);
+              }}
               className="w-full pl-10 pr-4 py-2 border border-custom hover:border-primary rounded-xl text-sm bg-white dark:bg-gray-800 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
             />
           </div>
-          
+
           <div className="w-40 shrink-0">
             <SelectDropDown
               name="status-filter"
               options={STATUS_FILTER_OPTIONS as any}
               value={STATUS_FILTER_OPTIONS.find((opt) => opt.value === statusFilter) as any}
               onChange={(opt: any) => {
-                if (opt) setStatusFilter(opt.value);
+                if (opt) {
+                  dispatch(setRoleSearchData({ search: searchQuery, status: opt.value }));
+                  fetchWithFilters(searchQuery, opt.value);
+                }
               }}
               isSearchable={false}
               isClearable={false}
@@ -247,9 +295,8 @@ export default function RolesCRUDPage() {
           <LoadingButton
             variant="custom"
             onClick={() => {
-              setSearchQuery('');
-              setStatusFilter('all');
-              fetchRoles();
+              dispatch(setRoleSearchData({ search: '', status: 'all' }));
+              dispatch(getAllRoles({}));
             }}
             className="p-2.5 border border-custom rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 transition"
             title="Refresh Data"
@@ -268,25 +315,19 @@ export default function RolesCRUDPage() {
       </div>
 
       <div className="flex-1 flex flex-col min-h-0">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : (
-          <DataTableComponent
-            columns={columns}
-            data={slicedRoles}
-            pagination={pagination}
-            setPagination={setPagination}
-            totalRows={filteredRoles.length}
-          />
-        )}
+        <DataTableComponent
+          columns={columns}
+          data={slicedRoles}
+          pagination={pagination}
+          setPagination={(newPag: any) => dispatch(setRolePagination(newPag))}
+          totalRows={rolesArray.length}
+        />
       </div>
 
       {/* Modal Dialog using GenericModal & RenderFields */}
       <GenericModal
         showModal={modalOpen}
-        closeModal={() => setModalOpen(false)}
+        closeModal={() => dispatch(setModalOpen(false))}
         modalTitle={editingRole ? 'Update Role' : 'Create Role'}
         modalBody={
           <Formik
@@ -295,6 +336,7 @@ export default function RolesCRUDPage() {
               is_active: editingRole ? editingRole.is_active : true,
             }}
             validationSchema={validationSchema}
+            enableReinitialize={true}
             onSubmit={handleSubmit}
           >
             {({ values, errors, touched, handleBlur, setFieldValue, isSubmitting }) => (
@@ -313,7 +355,7 @@ export default function RolesCRUDPage() {
                   <LoadingButton
                     type="button"
                     variant="secondary"
-                    onClick={() => setModalOpen(false)}
+                    onClick={() => dispatch(setModalOpen(false))}
                   >
                     Cancel
                   </LoadingButton>
