@@ -8,11 +8,17 @@
     "start": "nest start",
     "start:dev": "cross-env NODE_ENV=development nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "cross-env NODE_ENV=production node dist/main",
+    "start:prod": "cross-env NODE_ENV=production node dist/src/main",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "prisma db seed",
-    "migration": "prisma migrate dev && prisma db seed"
+    "prisma:migrate:dev": "npx dotenv -e .env.development -- prisma migrate dev",
+    "prisma:migrate:prod": "npx dotenv -e .env.production -- prisma migrate deploy",
+    "prisma:status:dev": "npx dotenv -e .env.development -- prisma migrate status",
+    "prisma:status:prod": "npx dotenv -e .env.production -- prisma migrate status",
+    "prisma:seed:dev": "cross-env NODE_ENV=development npx dotenv -e .env.development -- ts-node prisma/seed.ts",
+    "prisma:seed:prod": "cross-env NODE_ENV=production npx dotenv -e .env.production -- ts-node prisma/seed.ts",
+    "migration:dev": "npm run prisma:migrate:dev && npm run prisma:seed:dev",
+    "migration:prod": "npm run prisma:migrate:prod && npm run prisma:seed:prod",
+    "migration": "npm run migration:dev"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

@@ -1,129 +1,211 @@
-# Next-Nest Monorepo Stack
+# Next-Nest Enterprise Monorepo Stack
 
-A production-grade, highly scalable monorepo boilerplate featuring **Next.js** (App Router, Tailwind CSS, Redux-Saga, Formik) and **NestJS** (Prisma ORM, Argon2, HttpOnly cookies JWT authentication, PostgreSQL, RBAC).
+A production-grade, highly scalable monorepo boilerplate featuring **Next.js 15** (App Router, Tailwind CSS, Redux-Toolkit, Redux-Saga, Formik, TanStack Table) and **NestJS 10** (Prisma ORM, PostgreSQL, Argon2, HttpOnly JWT Authentication, RBAC, Nodemailer).
 
 ---
 
-## Project Directory Structure
+## 📁 Project Architecture & Directory Structure
 
 ```text
 next-nest/
 ├── apps/
-│   ├── api/                           # NestJS Backend
+│   ├── api/                                 # NestJS Backend Application
 │   │   ├── prisma/
-│   │   │   ├── schema.prisma          # Prisma Schema Definition
-│   │   │   └── seed.ts                # Database Default Seeding Data
+│   │   │   ├── schema.prisma                # Database Models & Prisma Schema
+│   │   │   ├── migrations/                  # Historical SQL Migrations
+│   │   │   └── seed.ts                      # Default Roles, Permissions & Admin Seeding
 │   │   ├── src/
-│   │   │   ├── main.ts                # Entrypoint (Helmet, CookieParser, Global Prefix)
-│   │   │   ├── app.module.ts          # Root Module importing all dependencies
-│   │   │   ├── config/                # Environment-wise application configurations
-│   │   │   ├── database/              # Global Prisma Service Module
-│   │   │   ├── common/                # Shared Guards (RBAC, JWT), Decorators, Exceptions
-│   │   │   └── modules/               # Modules (Auth, Users, Courses)
+│   │   │   ├── main.ts                      # API Entrypoint (Helmet, CORS, CookieParser)
+│   │   │   ├── app.module.ts                # Root Module
+│   │   │   ├── config/                      # Environment Configuration (Dev / Prod)
+│   │   │   ├── database/                    # Prisma Global Database Service
+│   │   │   ├── common/                      # Guards (JWT, RBAC), Decorators, Interceptors
+│   │   │   └── modules/                     # Features (Auth, Users, Roles, Modules, Permissions)
+│   │   ├── .env.development                 # Development DB & JWT Secrets
+│   │   └── .env.production                  # Production DB & JWT Secrets
 │   │
-│   └── web/                           # Next.js Frontend
-│       ├── tailwind.config.ts         # Tailwind Styling Configuration
-│       ├── postcss.config.mjs         # PostCSS configurations
+│   └── web/                                 # Next.js 15 Frontend Application
+│       ├── tailwind.config.ts               # Tailwind CSS Configuration
+│       ├── postcss.config.mjs               # PostCSS Setup
 │       └── src/
-│           ├── app/                   # App Router pages, layouts & authentication guards
-│           ├── features/              # Feature directories (components, stores, schemas)
-│           │   ├── auth/              # Auth forms, validation schemas, and states
-│           ├── store/                 # Global Redux Toolkit & Redux-Saga configurations
-│           └── lib/                   # API utilities & client interceptors (Auto Refresh)
+│           ├── app/                         # Next.js App Router Pages & Layouts
+│           │   ├── (auth)/                  # Login & Registration Pages
+│           │   ├── (dashboard)/             # Protected Dashboard Layout & Pages
+│           │   │   ├── dashboard/           # Analytics Overview Page
+│           │   │   ├── users/               # Users CRUD, Add, Edit & Profile Views
+│           │   │   ├── roles/               # Roles CRUD & Dynamic Role Permissions Grid
+│           │   │   ├── modules/             # System Modules Management
+│           │   │   ├── permissions/         # Permissions Management
+│           │   │   └── profile/             # Responsive User Profile & Password Change
+│           │   └── layout.tsx               # Root App Layout & Theme Provider
+│           ├── components/
+│           │   ├── common/                  # Shared Enterprise Components
+│           │   │   ├── DynamicSidebar.tsx   # Dual-mode Sidebar (Desktop Rail + Mobile Drawer)
+│           │   │   ├── Header.tsx           # Responsive Header (Hamburger, Theme, Logout)
+│           │   │   ├── TableToolbar.tsx     # Side-by-side Search & Custom Status Dropdown
+│           │   │   └── TableRowActions.tsx  # Unified Edit, Delete, View Action Buttons
+│           │   └── ui/                      # Base Reusable UI Controls
+│           │       ├── dataTableComponent.tsx  # TanStack Table with Responsive Pagination
+│           │       ├── genericModal.tsx     # Reusable Portal Modal Dialog
+│           │       ├── confirmationModal.tsx# Promise-based Confirmation Dialog
+│           │       ├── globalLoadingOverlay.tsx # Global Loading Spinner Overlay
+│           │       ├── customSwitch.tsx     # Compact Toggle Switch
+│           │       ├── renderFields.tsx     # Formik Dynamic Form Field Renderer
+│           │       └── selectDropDown.tsx   # Custom React Select Dropdown
+│           ├── features/                    # Feature Modules (Auth, Users, etc.)
+│           ├── store/                       # Redux Toolkit Store & Redux-Saga
+│           │   ├── common/                  # Generic CRUD Saga Worker Helpers
+│           │   ├── rootReducer.ts           # Root Combined Reducer
+│           │   └── rootSaga.ts              # Root Saga Orchestrator
+│           ├── types/                       # Centralized Canonical Domain Types
+│           └── lib/                         # Axios Client, Interceptors & Constants
 │
-├── docker-compose.yml                 # PostgreSQL Container Setup
-├── package.json                       # Monorepo workspaces definition & root scripts
-└── .gitignore                         # Credentials and Build artifacts ignore list
+├── package.json                             # Monorepo Workspaces & Central Script Hub
+└── README.md                                # Project Documentation
 ```
 
 ---
 
-## Implemented Security & Database Schema
+## 📱 Full Responsive Design (Mobile, Tablet & Desktop)
 
-### 1. Database Schema Models (PostgreSQL + Prisma)
-- **Role**: Custom roles with dynamic permission associations.
-- **User**: Comprehensive profile metadata, Argon2-hashed passwords, role relations.
-- **Permission**: Actions list (`view`, `create`, `edit`, `delete`, `view_detail`).
-- **Module**: Application sections (`user`, `role`, `dashboard`).
-- **RolePermission**: Mapped permissions (e.g. `view` permission mapped to all roles for all modules).
-- **RoutePermissionMap**: Maps API methods & routes to explicit permission identifiers.
-- **BlacklistedToken**: Revoked JWTs tracking.
+The web application is engineered for fluid responsiveness across all viewport sizes:
 
-### 2. Authentication Flow
-- **HttpOnly Cookies**: Short-lived `access_token` and long-lived `refresh_token` are stored securely in client-side HttpOnly cookies.
-- **Refresh Token Rotation**: Old tokens are revoked, and new sessions are registered in the PostgreSQL `Session` table.
-- **Client Auto-Refresh Interceptor**: If the access token expires, the Axios client automatically hits the `/auth/refresh` endpoint behind the scenes and retries the failed API call.
-
----
-
-## How to Run the Project
-
-### Prerequisites
-- Install [Node.js](https://nodejs.org) (v18 or higher recommended).
-- Install [Docker Desktop](https://www.docker.com/products/docker-desktop).
+1. **Dual-Mode Dynamic Sidebar ([DynamicSidebar.tsx](apps/web/src/components/common/DynamicSidebar.tsx))**:
+   - **Desktop (`>= 1024px`)**: Docked left sidebar supporting expandable full view (`256px`) and compact icon rail mode (`80px`).
+   - **Mobile / Tablet (`< 1024px`)**: Completely off-canvas by default. Opens smoothly as an animated slide-over drawer (`w-72 max-w-[85vw]`) with a dimmed backdrop blur (`bg-slate-950/60 backdrop-blur-xs`), dedicated close button (`FiX`), and auto-dismiss on link navigation or `Escape` key press.
+2. **Responsive Header ([Header.tsx](apps/web/src/components/common/Header.tsx))**:
+   - Dedicated mobile hamburger menu button (`FiMenu`) and brand logo on mobile devices.
+   - Desktop rail toggle button for quick workspace expansion.
+   - Touch-optimized theme toggle (Dark/Light mode) and secure logout action.
+3. **Professional Side-by-Side Toolbar ([TableToolbar.tsx](apps/web/src/components/common/TableToolbar.tsx))**:
+   - Search box with integrated clear (`⨉`) button and status dropdown sit **side-by-side on the same line** across mobile and desktop.
+   - Custom Status Dropdown with live colored status indicators (Active: Green `●`, Inactive: Red `●`, All: Slate `●`), rotating chevron, and active checkmarks.
+4. **Responsive Tables & Pagination ([dataTableComponent.tsx](apps/web/src/components/ui/dataTableComponent.tsx))**:
+   - Horizontal table scrolling with sticky headers and clean striped rows.
+   - Adaptive pagination footer preventing clipping or overflow on narrow screens.
+5. **Adaptive Profile Tabs ([profile/page.tsx](apps/web/src/app/(dashboard)/profile/page.tsx))**:
+   - Horizontal scrollable pills on mobile devices, vertical tab rail on desktop.
 
 ---
 
-### Step-by-Step Setup:
+## 🗄️ Database Migrations & Environment Handling
 
-### 1. Start Database Container
-Spin up PostgreSQL via Docker:
-```bash
-docker compose up -d
-```
+The project strictly separates **Development** and **Production** environments using dedicated `.env` files:
+- **Development:** `apps/api/.env.development`
+- **Production:** `apps/api/.env.production`
 
-### 2. Install Project Dependencies
-Run from the root folder:
+### Migration Commands Overview
+
+All commands can be executed directly from the **root directory** or from **`apps/api`**:
+
+| Operation | Development Command | Production Command | Target Env File |
+| :--- | :--- | :--- | :--- |
+| **Apply Migrations + Run Seeds** | `npm run migration:dev` | `npm run migration:prod` | `.env.development` / `.env.production` |
+| **Apply / Create Migrations Only** | `npm run prisma:migrate:dev` | `npm run prisma:migrate:prod` | `.env.development` / `.env.production` |
+| **Check Migration Status** | `npm run prisma:status:dev` | `npm run prisma:status:prod` | `.env.development` / `.env.production` |
+| **Run Seed Data Only** | `npm run prisma:seed:dev` | `npm run prisma:seed:prod` | `.env.development` / `.env.production` |
+| **Regenerate Prisma Client** | `npm run prisma:generate` | `npm run prisma:generate` | `schema.prisma` |
+
+### How to Create a New Migration (Step-by-Step):
+
+1. Edit your models in `apps/api/prisma/schema.prisma`.
+2. Run the development migration command:
+   ```bash
+   npm run prisma:migrate:dev
+   ```
+3. Prisma will prompt you for a migration name (e.g. `add_user_bio`), generate the SQL migration file under `apps/api/prisma/migrations/`, apply it to your development database, and regenerate the Prisma Client.
+4. When ready to deploy to production:
+   ```bash
+   npm run prisma:migrate:prod
+   ```
+   *(This uses `prisma migrate deploy`, safely applying all pending migrations to the production database without prompts or database resets).*
+
+---
+
+## 🚀 Getting Started & Local Development
+
+### 1. Prerequisites
+- **Node.js**: v18.0.0 or higher
+- **PostgreSQL**: Local PostgreSQL instance or remote connection (e.g. Render / Supabase / Neon)
+
+### 2. Installation
+Install all dependencies for all workspaces from the root folder:
 ```bash
 npm install
 ```
 
-### 3. Setup Environment Variables
-Before running the project, configure your environment files:
-- **Backend:** `apps/api/.env.development` and `apps/api/.env.production`
-- **Frontend:** `apps/web/.env.development` and `apps/web/.env.production`
+### 3. Environment Variables Setup
+Ensure your environment files are configured:
+
+**Backend (`apps/api/.env.development`):**
+```env
+NODE_ENV=development
+PORT=4000
+DATABASE_URL="postgresql://<user>:<password>@<host>:<port>/<db_name>?schema=public"
+JWT_SECRET="your_secure_jwt_secret_key"
+JWT_ACCESS_EXPIRES_IN=1d
+JWT_REFRESH_EXPIRES_IN=7d
+CLIENT_URL="http://localhost:3000"
+```
+
+**Frontend (`apps/web/.env.development`):**
+```env
+NEXT_PUBLIC_API_URL="http://localhost:4000/api"
+```
+
+### 4. Run Migrations & Seed Initial Data
+```bash
+npm run migration:dev
+```
+
+### 5. Start Development Servers
+
+Open two terminals (or run via npm workspace scripts):
+
+* **Start Backend API Server (Port 4000):**
+  ```bash
+  npm run dev:api
+  ```
+* **Start Frontend Web App (Port 3000):**
+  ```bash
+  npm run dev:web
+  ```
+
+Visit the application at [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## Workspace CLI Commands
+## 🛡️ Security & Authentication
 
-All workspace commands can be run directly from the root folder:
-
-### Database, Migrations & Seeding Commands
-
-| Command | Action | Loaded Env File | Target Database |
-| :--- | :--- | :--- | :--- |
-| **`npm run migration`** | **Dev Migration + Seed (Run together)** | `apps/api/.env.development` | **`test_bd` (Development)** |
-| **`npm run migration:prod`** | **Prod Migration + Seed (Run together)** | `apps/api/.env.production` | **`test_bd_prod` (Production)** |
-| `npm run prisma:migrate:dev` | Apply database migrations only | `apps/api/.env.development` | `test_bd` |
-| `npm run prisma:migrate:prod` | Apply database migrations only | `apps/api/.env.production` | `test_bd_prod` |
-| `npm run prisma:seed:dev` | Seed database tables only | `apps/api/.env.development` | `test_bd` |
-| `npm run prisma:seed:prod` | Seed database tables only | `apps/api/.env.production` | `test_bd_prod` |
-| `npm run prisma:generate` | Regenerate Prisma Client | N/A | N/A |
-
-### Development Mode (Local Servers)
-
-| Command | Action | Loaded Env File | Runs On Port |
-| :--- | :--- | :--- | :--- |
-| **`npm run dev:api`** | Start NestJS Backend | `apps/api/.env.development` | **`4000`** |
-| **`npm run dev:web`** | Start Next.js Frontend | `apps/web/.env.development` | **`3000`** |
-
-### Production Build & Execution
-
-| Command | Action | Loaded Env File | Runs On Port |
-| :--- | :--- | :--- | :--- |
-| **`npm run build:web`** | Compile Next.js Frontend for Prod | `apps/web/.env.production` | N/A |
-| **`npm run build --workspace=apps/api`** | Compile NestJS Backend for Prod | N/A | N/A |
-| **`npm run start:web`** | Start Next.js Production Frontend | `apps/web/.env.production` | **`3000`** |
-| **`npm run prod:api`** | Start NestJS Production Backend | `apps/api/.env.production` | **`4000`** |
+- **HttpOnly Cookies**: Secure `access_token` and `refresh_token` storage protecting against XSS attacks.
+- **Argon2 Password Hashing**: State-of-the-art password security.
+- **Silent Refresh Interceptor**: Axios client automatically refreshes expired access tokens in the background and retries the original request.
+- **Granular RBAC**: Role-based access control with module-level permissions (`view`, `create`, `edit`, `delete`, `view_detail`).
+- **Input Validation**: Server-side validation via `class-validator` DTOs and client-side validation via Formik + Yup.
 
 ---
 
-## How to Scale the Structure
-When adding new business features (e.g. payments, courses, tasks):
+## 🏗️ Building for Production
 
-1. **Database Schema**: Add the Prisma Model inside `apps/api/prisma/schema.prisma`.
-2. **Backend Module**: Create a module under `apps/api/src/modules/` containing controller, service, and validation DTOs. Add it to `app.module.ts`.
-3. **Frontend Feature**: Under `apps/web/src/features/`, create your feature folder with matching folders: `components/`, `store/`, `services/`, and `schemas/`.
-4. **Redux Store**: Register any new feature slices/sagas inside global root configurations (`src/store/rootReducer.ts` and `src/store/rootSaga.ts`).
-# base_project
+To verify types and generate production builds:
+
+* **Type Check:**
+  ```bash
+  npx tsc --noEmit --workspace=apps/web
+  ```
+* **Compile Frontend:**
+  ```bash
+  npm run build:web
+  ```
+* **Compile Backend:**
+  ```bash
+  npm run build --workspace=apps/api
+  ```
+* **Start Production Frontend:**
+  ```bash
+  npm run start:web
+  ```
+* **Start Production Backend:**
+  ```bash
+  npm run prod:api
+  ```

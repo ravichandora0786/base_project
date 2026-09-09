@@ -12,15 +12,21 @@
     "build:web": "npm run build --workspace=apps/web",
     "start:web": "npm run start --workspace=apps/web",
     "prisma:generate": "npx prisma generate --schema=apps/api/prisma/schema.prisma",
-    "prisma:migrate:dev": "npx dotenv -e apps/api/.env.development -- npx prisma migrate dev --schema=apps/api/prisma/schema.prisma",
-    "prisma:migrate:prod": "npx dotenv -e apps/api/.env.production -- npx prisma migrate dev --schema=apps/api/prisma/schema.prisma",
+    "prisma:migrate:dev": "npx dotenv -e apps/api/.env.development -- npx prisma migrate dev",
+    "prisma:migrate:prod": "npx dotenv -e apps/api/.env.production -- npx prisma migrate deploy",
+    "prisma:status:dev": "npx dotenv -e apps/api/.env.development -- npx prisma migrate status",
+    "prisma:status:prod": "npx dotenv -e apps/api/.env.production -- npx prisma migrate status",
     "prisma:seed:dev": "cross-env NODE_ENV=development npx dotenv -e apps/api/.env.development -- npx ts-node -P apps/api/tsconfig.json apps/api/prisma/seed.ts",
     "prisma:seed:prod": "cross-env NODE_ENV=production npx dotenv -e apps/api/.env.production -- npx ts-node -P apps/api/tsconfig.json apps/api/prisma/seed.ts",
-    "migration": "npm run prisma:migrate:dev && npm run prisma:seed:dev",
-    "migration:prod": "npm run prisma:migrate:prod && npm run prisma:seed:prod"
+    "migration:dev": "npm run prisma:migrate:dev && npm run prisma:seed:dev",
+    "migration:prod": "npm run prisma:migrate:prod && npm run prisma:seed:prod",
+    "migration": "npm run migration:dev"
   },
   "devDependencies": {
     "@types/js-cookie": "^3.0.6",
     "dotenv-cli": "^11.0.0"
+  },
+  "prisma": {
+    "schema": "apps/api/prisma/schema.prisma"
   }
 }
