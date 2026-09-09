@@ -2,6 +2,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Install OpenSSL and libc6-compat for Prisma engine detection
+RUN apk add --no-cache openssl libc6-compat
+
 # Copy root configurations for monorepo
 COPY package*.json ./
 COPY apps/api/package*.json ./apps/api/
@@ -21,6 +24,9 @@ RUN npm run build --workspace=apps/api
 # --- PRODUCTION STAGE ---
 FROM node:20-alpine AS runner
 WORKDIR /app
+
+# Install OpenSSL and libc6-compat for Prisma runtime
+RUN apk add --no-cache openssl libc6-compat
 
 ENV NODE_ENV=production
 
