@@ -4,22 +4,22 @@ import React, { useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
-import { FiPlus, FiEdit2, FiTrash2, FiLock, FiSearch, FiRefreshCw } from 'react-icons/fi';
+import { FiLock } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import RenderFields from '@/components/ui/renderFields';
 import LoadingButton from '@/components/ui/loadingButton';
 import DataTableComponent from '@/components/ui/dataTableComponent';
 import GenericModal from '@/components/ui/genericModal';
-import SelectDropDown from '@/components/ui/selectDropDown';
+import TableToolbar from '@/components/common/TableToolbar';
+import TableRowActions from '@/components/common/TableRowActions';
 import { ColumnDef } from '@tanstack/react-table';
 import CustomSwitch from '@/components/ui/customSwitch';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { checkAuthStart } from '@/features/auth/store/auth.slice';
-import { STATUS_FILTER_OPTIONS } from '@/lib/constants';
 import { useConfirm } from '@/components/ui/confirmationModal';
+import { Role } from '@/types/models';
 
 // Redux Imports
-import { selectGlobalLoading } from '@/store/common/selector';
 import {
   selectAllRoleDataList,
   selectRolePagination,
@@ -37,28 +37,6 @@ import {
   updateRole,
   deleteRole,
 } from './store/slice';
-
-interface Role {
-  id: string;
-  name: string;
-  is_active: boolean;
-  created_at: string;
-}
-
-const roleFields = [
-  {
-    name: 'name',
-    label: 'Role Name',
-    type: 'text',
-    required: true,
-  },
-  {
-    name: 'is_active',
-    label: 'Status Active',
-    type: 'toggle',
-    required: false,
-  },
-];
 
 const validationSchema = Yup.object().shape({
   name: Yup.string().required('Role name is required'),
@@ -140,15 +118,9 @@ export default function RolesCRUDPage() {
   };
 
   const handleDelete = async (id: string) => {
-    const roleToDelete = rolesArray.find((r) => r.id === id);
-    if (roleToDelete?.name?.toLowerCase() === 'admin') {
-      toast.error('Admin role cannot be deleted');
-      return;
-    }
-
     const isConfirmed = await confirm({
-      title: 'Delete System Role?',
-      message: 'Are you sure you want to delete this role? Users assigned to this role will lose access. This action cannot be undone.',
+      title: 'Delete Role?',
+      message: 'Are you sure you want to delete this role? This action cannot be undone.',
       confirmText: 'Delete',
       cancelText: 'Cancel',
       variant: 'danger',
@@ -177,23 +149,8 @@ export default function RolesCRUDPage() {
         header: 'Role Name',
         accessorKey: 'name',
         cell: ({ getValue }) => {
-          const name = getValue() as string;
-          const isAdmin = name?.toLowerCase() === 'admin';
-          return (
-            <div className="flex items-center space-x-2.5">
-              <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  isAdmin ? 'bg-amber-500 ring-4 ring-amber-500/10' : 'bg-blue-500 ring-4 ring-blue-500/10'
-                }`}
-              />
-              <span className="capitalize font-bold text-slate-900 dark:text-white tracking-tight">{name}</span>
-              {isAdmin && (
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-900/40">
-                  System
-                </span>
-              )}
-            </div>
-          );
+          const val = getValue() as string;
+          return <span className="font-bold capitalize">{val}</span>;
         },
       },
       {
@@ -238,42 +195,28 @@ export default function RolesCRUDPage() {
         cell: ({ row }) => {
           const isAdmin = row.original.name?.toLowerCase() === 'admin';
           return (
-            <div className="text-right space-x-1.5">
-              <LoadingButton
-                variant="custom"
-                onClick={() => router.push(`/roles/${row.original.id}/permissions`)}
-                className="w-8 h-8 rounded-lg text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/40 transition inline-flex items-center justify-center shadow-2xs"
-                aria-label="Edit Role Permissions"
-                title="Manage Permissions"
-              >
-                <FiLock className="w-4 h-4" />
-              </LoadingButton>
-              <LoadingButton
-                variant="custom"
-                onClick={() => handleOpenEdit(row.original)}
-                className="w-8 h-8 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 border border-transparent hover:border-blue-100 dark:hover:border-blue-900/40 transition inline-flex items-center justify-center shadow-2xs"
-                aria-label="Edit Role"
-                title="Edit Role"
-              >
-                <FiEdit2 className="w-4 h-4" />
-              </LoadingButton>
-              {!isAdmin && (
+            <TableRowActions
+              extraActions={
                 <LoadingButton
                   variant="custom"
-                  onClick={() => handleDelete(row.original.id)}
-                  className="w-8 h-8 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border border-transparent hover:border-red-100 dark:hover:border-red-900/40 transition inline-flex items-center justify-center shadow-2xs"
-                  aria-label="Delete Role"
-                  title="Delete Role"
+                  onClick={() => router.push(`/roles/${row.original.id}/permissions`)}
+                  className="w-8 h-8 rounded-lg text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/40 transition inline-flex items-center justify-center shadow-2xs"
+                  aria-label="Edit Role Permissions"
+                  title="Manage Permissions"
                 >
-                  <FiTrash2 className="w-4 h-4" />
+                  <FiLock className="w-4 h-4" />
                 </LoadingButton>
-              )}
-            </div>
+              }
+              onEdit={() => handleOpenEdit(row.original)}
+              onDelete={!isAdmin ? () => handleDelete(row.original.id) : undefined}
+              editTitle="Edit Role"
+              deleteTitle="Delete Role"
+            />
           );
         },
       },
     ],
-    [dispatch, router, rolesArray]
+    [dispatch, router]
   );
 
   // Fetch roles with server-side filtering
@@ -313,64 +256,24 @@ export default function RolesCRUDPage() {
 
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
-      {/* Toolbar Search, Status Filter and Refresh */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-2">
-        <div className="flex items-center space-x-3 flex-grow max-w-md">
-          <div className="relative flex-grow">
-            <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search by Name"
-              value={searchQuery}
-              onChange={(e) => {
-                const val = e.target.value;
-                dispatch(setRoleSearchData({ search: val, status: statusFilter }));
-                dispatch(setRolePagination({ pageIndex: 0, pageSize: pagination.pageSize }));
-                fetchWithFilters(val, statusFilter);
-              }}
-              className="w-full pl-10 pr-4 py-2 border border-custom rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-custom-primary bg-custom-card transition"
-            />
-          </div>
-
-          <div className="w-44">
-            <SelectDropDown
-              name="statusFilter"
-              options={STATUS_FILTER_OPTIONS}
-              value={STATUS_FILTER_OPTIONS.find((opt) => opt.value === statusFilter)}
-              onChange={(selected: any) => {
-                const val = selected?.value ?? 'all';
-                dispatch(setRoleSearchData({ search: searchQuery, status: val }));
-                dispatch(setRolePagination({ pageIndex: 0, pageSize: pagination.pageSize }));
-                fetchWithFilters(searchQuery, val);
-              }}
-              placeholder="All Status"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <LoadingButton
-            onClick={() => {
-              dispatch(setRoleSearchData({ search: '', status: 'all' }));
-              dispatch(setRolePagination({ pageIndex: 0, pageSize: pagination.pageSize }));
-              dispatch(getAllRoles({}));
-            }}
-            variant="custom"
-            className="p-2.5 border border-custom rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 transition"
-            title="Refresh Data"
-          >
-            <FiRefreshCw className="w-4 h-4 animate-hover-spin" />
-          </LoadingButton>
-
-          <LoadingButton
-            onClick={handleOpenCreate}
-            variant="custom"
-            className="flex items-center space-x-2 px-4 py-2.5 bg-custom-primary hover:bg-custom-primary-hover text-white rounded-xl font-bold shadow-md transition"
-          >
-            <FiPlus className="w-4 h-4" />
-          </LoadingButton>
-        </div>
-      </div>
+      <TableToolbar
+        searchQuery={searchQuery}
+        onSearchChange={(val) => {
+          dispatch(setRoleSearchData({ search: val, status: statusFilter }));
+          fetchWithFilters(val, statusFilter);
+        }}
+        statusFilter={statusFilter}
+        onStatusChange={(val) => {
+          dispatch(setRoleSearchData({ search: searchQuery, status: val }));
+          fetchWithFilters(searchQuery, val);
+        }}
+        onRefresh={() => {
+          dispatch(setRoleSearchData({ search: '', status: 'all' }));
+          dispatch(getAllRoles({}));
+        }}
+        onCreate={handleOpenCreate}
+        createTooltip="Create Role"
+      />
 
       <div className="flex-1 flex flex-col min-h-0">
         <DataTableComponent

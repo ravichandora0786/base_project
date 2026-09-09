@@ -4,18 +4,18 @@ import React, { useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiRefreshCw } from 'react-icons/fi';
 import RenderFields from '@/components/ui/renderFields';
 import LoadingButton from '@/components/ui/loadingButton';
 import DataTableComponent from '@/components/ui/dataTableComponent';
 import GenericModal from '@/components/ui/genericModal';
-import SelectDropDown from '@/components/ui/selectDropDown';
+import TableToolbar from '@/components/common/TableToolbar';
+import TableRowActions from '@/components/common/TableRowActions';
 import { ColumnDef } from '@tanstack/react-table';
 import CustomSwitch from '@/components/ui/customSwitch';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { checkAuthStart } from '@/features/auth/store/auth.slice';
-import { STATUS_FILTER_OPTIONS } from '@/lib/constants';
 import { useConfirm } from '@/components/ui/confirmationModal';
+import { Permission } from '@/types/models';
 
 // Redux Imports
 import {
@@ -35,13 +35,6 @@ import {
   updatePermission,
   deletePermission,
 } from './store/slice';
-
-interface Permission {
-  id: string;
-  name: string;
-  code: string;
-  is_active: boolean;
-}
 
 const permissionFields = [
   {
@@ -188,7 +181,7 @@ export default function PermissionsCRUDPage() {
         accessorKey: 'is_active',
         cell: ({ row }) => (
           <CustomSwitch
-            name={`perm-status-${row.original.id}`}
+            name={`status-${row.original.id}`}
             checked={row.original.is_active}
             onChange={(e) => {
               const newVal = e.target.checked;
@@ -214,26 +207,12 @@ export default function PermissionsCRUDPage() {
         header: () => <div className="text-right">Actions</div>,
         id: 'actions',
         cell: ({ row }) => (
-          <div className="text-right space-x-1.5">
-            <LoadingButton
-              variant="custom"
-              onClick={() => handleOpenEdit(row.original)}
-              className="w-8 h-8 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 border border-transparent hover:border-blue-100 dark:hover:border-blue-900/40 transition inline-flex items-center justify-center shadow-2xs"
-              aria-label="Edit Permission"
-              title="Edit Permission"
-            >
-              <FiEdit2 className="w-4 h-4" />
-            </LoadingButton>
-            <LoadingButton
-              variant="custom"
-              onClick={() => handleDelete(row.original.id)}
-              className="w-8 h-8 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border border-transparent hover:border-red-100 dark:hover:border-red-900/40 transition inline-flex items-center justify-center shadow-2xs"
-              aria-label="Delete Permission"
-              title="Delete Permission"
-            >
-              <FiTrash2 className="w-4 h-4" />
-            </LoadingButton>
-          </div>
+          <TableRowActions
+            onEdit={() => handleOpenEdit(row.original)}
+            onDelete={() => handleDelete(row.original.id)}
+            editTitle="Edit Permission"
+            deleteTitle="Delete Permission"
+          />
         ),
       },
     ],
@@ -259,65 +238,24 @@ export default function PermissionsCRUDPage() {
 
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
-      {/* Toolbar Search, Status Filter and Refresh */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-2">
-        <div className="flex items-center space-x-3 flex-grow max-w-md">
-          <div className="relative flex-grow">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-              <FiSearch className="w-4 h-4" />
-            </span>
-            <input
-              type="text"
-              placeholder="Search by Name"
-              value={searchQuery}
-              onChange={(e) => {
-                const val = e.target.value;
-                dispatch(setPermissionSearchData({ search: val, status: statusFilter }));
-                fetchWithFilters(val, statusFilter);
-              }}
-              className="w-full pl-10 pr-4 py-2 border border-custom hover:border-primary rounded-xl text-sm bg-white dark:bg-gray-800 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
-            />
-          </div>
-
-          <div className="w-40 shrink-0">
-            <SelectDropDown
-              name="status-filter"
-              options={STATUS_FILTER_OPTIONS as any}
-              value={STATUS_FILTER_OPTIONS.find((opt) => opt.value === statusFilter) as any}
-              onChange={(opt: any) => {
-                if (opt) {
-                  dispatch(setPermissionSearchData({ search: searchQuery, status: opt.value }));
-                  fetchWithFilters(searchQuery, opt.value);
-                }
-              }}
-              isSearchable={false}
-              isClearable={false}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <LoadingButton
-            variant="custom"
-            onClick={() => {
-              dispatch(setPermissionSearchData({ search: '', status: 'all' }));
-              dispatch(getAllPermissions({}));
-            }}
-            className="p-2.5 border border-custom rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 transition"
-            title="Refresh Data"
-          >
-            <FiRefreshCw className="w-4 h-4 animate-hover-spin" />
-          </LoadingButton>
-
-          <LoadingButton
-            onClick={handleOpenCreate}
-            variant="custom"
-            className="flex items-center space-x-2 px-4 py-2.5 bg-custom-primary hover:bg-custom-primary-hover text-white rounded-xl font-bold shadow-md transition"
-          >
-            <FiPlus className="w-4 h-4" />
-          </LoadingButton>
-        </div>
-      </div>
+      <TableToolbar
+        searchQuery={searchQuery}
+        onSearchChange={(val) => {
+          dispatch(setPermissionSearchData({ search: val, status: statusFilter }));
+          fetchWithFilters(val, statusFilter);
+        }}
+        statusFilter={statusFilter}
+        onStatusChange={(val) => {
+          dispatch(setPermissionSearchData({ search: searchQuery, status: val }));
+          fetchWithFilters(searchQuery, val);
+        }}
+        onRefresh={() => {
+          dispatch(setPermissionSearchData({ search: '', status: 'all' }));
+          dispatch(getAllPermissions({}));
+        }}
+        onCreate={handleOpenCreate}
+        createTooltip="Create Permission"
+      />
 
       <div className="flex-1 flex flex-col min-h-0">
         <DataTableComponent

@@ -6,21 +6,7 @@ import { apiClient } from '@/lib/api/client';
 import { toast } from 'react-toastify';
 import LoadingButton from '@/components/ui/loadingButton';
 import { FiArrowLeft, FiMail, FiPhone, FiCheckCircle, FiXCircle } from 'react-icons/fi';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  gender: string | null;
-  profile_image: string | null;
-  is_active: boolean;
-  role: {
-    id: string;
-    name: string;
-  };
-  permissions?: Record<string, string[]>;
-}
+import { User } from '@/types/models';
 
 interface PageProps {
   params: Promise<{
@@ -75,12 +61,12 @@ export default function UserDetailsPage({ params }: PageProps) {
   return (
     <div className="space-y-6 flex-1 flex flex-col min-h-0 animate-fade-in">
       {/* Back Header navigation */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center space-x-3 sm:space-x-4">
           <LoadingButton
             variant="secondary"
             onClick={() => router.push('/users')}
-            className="p-2.5 border border-custom rounded-xl text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+            className="p-2.5 border border-custom rounded-xl text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition shrink-0"
           >
             <FiArrowLeft className="w-4 h-4" />
           </LoadingButton>
@@ -92,7 +78,7 @@ export default function UserDetailsPage({ params }: PageProps) {
         <LoadingButton
           variant="primary"
           onClick={() => router.push(`/users/edit?id=${user.id}`)}
-          className="flex items-center gap-2 px-5 py-2.5 font-bold"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 font-bold self-start sm:self-auto"
         >
           Edit Profile
         </LoadingButton>

@@ -36,6 +36,3 @@ export const {
   setTheme,
   setGlobalLoading,
 } = commonSlice.actions;
-
-// Api Actions
-export const fetchAppConfig = createAction("FETCH_APP_CONFIG");

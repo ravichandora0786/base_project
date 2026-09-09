@@ -440,12 +440,12 @@ export default function AddEditUserComponent({ userId, isEdit }: AddEditUserComp
               </div>
 
               {/* Form Action Buttons */}
-              <div className="flex justify-end gap-3 pt-6 border-t border-custom">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-6 border-t border-custom">
                 <LoadingButton
                   type="button"
                   variant="secondary"
                   onClick={() => router.push('/users')}
-                  className="px-5 py-2.5 font-bold"
+                  className="px-5 py-2.5 font-bold justify-center"
                 >
                   Cancel
                 </LoadingButton>
@@ -453,7 +453,7 @@ export default function AddEditUserComponent({ userId, isEdit }: AddEditUserComp
                   type="submit"
                   isLoading={btnLoading}
                   variant="primary"
-                  className="flex items-center gap-2 px-5 py-2.5 font-bold"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 font-bold"
                 >
                   <FiSave className="w-4 h-4" />
                   {isEdit ? 'Update Profile' : 'Save & Submit'}

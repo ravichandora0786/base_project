@@ -2,21 +2,20 @@
 
 import React, { useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { FiPlus, FiEdit2, FiTrash2, FiUser, FiSearch, FiRefreshCw, FiEye } from 'react-icons/fi';
-import LoadingButton from '@/components/ui/loadingButton';
+import { FiUser } from 'react-icons/fi';
 import DataTableComponent from '@/components/ui/dataTableComponent';
-import SelectDropDown from '@/components/ui/selectDropDown';
 import CustomSwitch from '@/components/ui/customSwitch';
+import TableToolbar from '@/components/common/TableToolbar';
+import TableRowActions from '@/components/common/TableRowActions';
 import { useAppSelector, useAppDispatch } from '@/store';
 import { checkAuthStart } from '@/features/auth/store/auth.slice';
 import { ColumnDef } from '@tanstack/react-table';
-import { STATUS_FILTER_OPTIONS } from '@/lib/constants';
 import { useConfirm } from '@/components/ui/confirmationModal';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
+import { User, Role } from '@/types/models';
 
 // Redux Imports
-import { selectGlobalLoading } from '@/store/common/selector';
 import {
   selectAllUserDataList,
   selectUserPagination,
@@ -30,27 +29,6 @@ import {
 } from './store/slice';
 import { selectAllRoleDataList } from '../roles/store/selector';
 import { getAllRoles } from '../roles/store/slice';
-
-interface Role {
-  id: string;
-  name: string;
-  is_active: boolean;
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  gender: string | null;
-  profile_image: string | null;
-  is_active: boolean;
-  role: {
-    id: string;
-    name: string;
-  };
-  permissions?: Record<string, string[]>;
-}
 
 export default function UsersCRUDPage() {
   const dispatch = useAppDispatch();
@@ -140,14 +118,12 @@ export default function UsersCRUDPage() {
                   onError={() => setImgError(true)}
                 />
               ) : (
-                <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-custom flex items-center justify-center text-slate-500 shadow-2xs">
+                <div className="w-9 h-9 rounded-xl bg-custom-primary/10 border border-custom flex items-center justify-center text-custom-primary font-bold shadow-2xs">
                   <FiUser className="w-4 h-4" />
                 </div>
               )}
               <div>
-                <div className="font-bold text-slate-900 dark:text-white capitalize tracking-tight leading-snug">
-                  {row.original.name}
-                </div>
+                <div className="font-bold text-gray-900 dark:text-white capitalize">{row.original.name}</div>
                 <div className="text-xs text-custom-muted">{row.original.email}</div>
               </div>
             </div>
@@ -155,40 +131,35 @@ export default function UsersCRUDPage() {
         },
       },
       {
-        header: 'Phone',
-        accessorKey: 'phone',
-        cell: ({ row }) => (
-          <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-            {row.original.phone || '—'}
-          </span>
-        ),
-      },
-      {
-        header: 'Gender',
-        accessorKey: 'gender',
-        cell: ({ row }) => (
-          <span className="text-sm font-medium text-slate-600 dark:text-slate-300 capitalize">
-            {row.original.gender || '—'}
-          </span>
-        ),
-      },
-      {
         header: 'Role',
         accessorKey: 'role.name',
         cell: ({ row }) => {
-          const roleName = row.original.role?.name || '—';
-          const isAdmin = roleName.toLowerCase() === 'admin';
+          const roleName = row.original.role?.name || 'No Role';
+          const isRoleAdmin = roleName.toLowerCase() === 'admin';
           return (
             <span
-              className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-tight border capitalize ${
-                isAdmin
-                  ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200/80 dark:border-amber-900/40'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+              className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold capitalize border ${
+                isRoleAdmin
+                  ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/60 shadow-2xs'
+                  : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/60 shadow-2xs'
               }`}
             >
               {roleName}
             </span>
           );
+        },
+      },
+      {
+        header: 'Phone',
+        accessorKey: 'phone',
+        cell: ({ getValue }) => <span>{(getValue() as string) || '-'}</span>,
+      },
+      {
+        header: 'Gender',
+        accessorKey: 'gender',
+        cell: ({ getValue }) => {
+          const val = (getValue() as string) || '';
+          return <span className="capitalize">{val ? val : '-'}</span>;
         },
       },
       {
@@ -223,35 +194,14 @@ export default function UsersCRUDPage() {
         header: () => <div className="text-right">Actions</div>,
         id: 'actions',
         cell: ({ row }) => (
-          <div className="text-right space-x-1.5">
-            <LoadingButton
-              variant="custom"
-              onClick={() => handleOpenView(row.original)}
-              className="w-8 h-8 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-transparent hover:border-emerald-100 dark:hover:border-emerald-900/40 transition inline-flex items-center justify-center shadow-2xs"
-              aria-label="View User Details"
-              title="View User"
-            >
-              <FiEye className="w-4 h-4" />
-            </LoadingButton>
-            <LoadingButton
-              variant="custom"
-              onClick={() => handleOpenEdit(row.original)}
-              className="w-8 h-8 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 border border-transparent hover:border-blue-100 dark:hover:border-blue-900/40 transition inline-flex items-center justify-center shadow-2xs"
-              aria-label="Edit User"
-              title="Edit User"
-            >
-              <FiEdit2 className="w-4 h-4" />
-            </LoadingButton>
-            <LoadingButton
-              variant="custom"
-              onClick={() => handleDelete(row.original.id)}
-              className="w-8 h-8 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border border-transparent hover:border-red-100 dark:hover:border-red-900/40 transition inline-flex items-center justify-center shadow-2xs"
-              aria-label="Delete User"
-              title="Delete User"
-            >
-              <FiTrash2 className="w-4 h-4" />
-            </LoadingButton>
-          </div>
+          <TableRowActions
+            onView={() => handleOpenView(row.original)}
+            onEdit={() => handleOpenEdit(row.original)}
+            onDelete={() => handleDelete(row.original.id)}
+            viewTitle="View User"
+            editTitle="Edit User"
+            deleteTitle="Delete User"
+          />
         ),
       },
     ],
@@ -267,66 +217,25 @@ export default function UsersCRUDPage() {
 
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
-      {/* Toolbar Search, Status Filter and Refresh */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-2">
-        <div className="flex items-center space-x-3 flex-grow max-w-md">
-          <div className="relative flex-grow">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-              <FiSearch className="w-4 h-4" />
-            </span>
-            <input
-              type="text"
-              placeholder="Search by Name"
-              value={searchQuery}
-              onChange={(e) => {
-                const val = e.target.value;
-                dispatch(setUserSearchData({ search: val, status: statusFilter }));
-                fetchWithFilters(val, statusFilter);
-              }}
-              className="w-full pl-10 pr-4 py-2 border border-custom hover:border-primary rounded-xl text-sm bg-white dark:bg-gray-800 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
-            />
-          </div>
-
-          <div className="w-40 shrink-0">
-            <SelectDropDown
-              name="status-filter"
-              options={STATUS_FILTER_OPTIONS as any}
-              value={STATUS_FILTER_OPTIONS.find((opt) => opt.value === statusFilter) as any}
-              onChange={(opt: any) => {
-                if (opt) {
-                  dispatch(setUserSearchData({ search: searchQuery, status: opt.value }));
-                  fetchWithFilters(searchQuery, opt.value);
-                }
-              }}
-              isSearchable={false}
-              isClearable={false}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <LoadingButton
-            variant="custom"
-            onClick={() => {
-              dispatch(setUserSearchData({ search: '', status: 'all' }));
-              dispatch(getAllUsers({}));
-              dispatch(getAllRoles({}));
-            }}
-            className="p-2.5 border border-custom rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 transition"
-            title="Refresh"
-          >
-            <FiRefreshCw className="w-4 h-4 animate-hover-spin" />
-          </LoadingButton>
-
-          <LoadingButton
-            onClick={handleOpenCreate}
-            variant="custom"
-            className="flex items-center space-x-2 px-4 py-2.5 bg-custom-primary hover:bg-custom-primary-hover text-white rounded-xl font-bold shadow-md transition"
-          >
-            <FiPlus className="w-4 h-4" />
-          </LoadingButton>
-        </div>
-      </div>
+      <TableToolbar
+        searchQuery={searchQuery}
+        onSearchChange={(val) => {
+          dispatch(setUserSearchData({ search: val, status: statusFilter }));
+          fetchWithFilters(val, statusFilter);
+        }}
+        statusFilter={statusFilter}
+        onStatusChange={(val) => {
+          dispatch(setUserSearchData({ search: searchQuery, status: val }));
+          fetchWithFilters(searchQuery, val);
+        }}
+        onRefresh={() => {
+          dispatch(setUserSearchData({ search: '', status: 'all' }));
+          dispatch(getAllUsers({}));
+          dispatch(getAllRoles({}));
+        }}
+        onCreate={handleOpenCreate}
+        createTooltip="Add New User"
+      />
 
       <div className="flex-1 flex flex-col min-h-0">
         <DataTableComponent

@@ -1,23 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { User, RolePermission } from '@/types/models';
 
-export interface RolePermission {
-  module: {
-    name: string;
-  };
-  permission_ids: string[];
-}
-
-export interface User {
-  id: string;
-  email: string;
-  name?: string;
-  role: {
-    id: string;
-    name: string;
-    rolePermissions?: RolePermission[];
-  };
-  permissions?: Record<string, string[]>;
-}
+export type { User, RolePermission };
 
 interface AuthState {
   user: User | null;

@@ -214,17 +214,17 @@ const DataTableComponent = ({
       </div>
 
       {/* Integrated Bottom Pagination & Summary Footer */}
-      <div className="border-t border-custom px-2 py-1 bg-slate-50/50 dark:bg-slate-900/30 flex items-center justify-between flex-wrap gap-3 select-none">
+      <div className="border-t border-custom px-3 py-2 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col sm:flex-row items-center justify-between gap-2.5 select-none">
         {/* Left: Entries Info & Rows Per Page */}
-        <div className="flex items-center gap-3 text-xs text-custom-muted font-medium">
+        <div className="flex items-center justify-between w-full sm:w-auto gap-3 text-xs text-custom-muted font-medium">
           <span>
-            Showing <span className="font-bold text-slate-800 dark:text-slate-200">{startRow}</span> to{' '}
+            Showing <span className="font-bold text-slate-800 dark:text-slate-200">{startRow}</span>-
             <span className="font-bold text-slate-800 dark:text-slate-200">{endRow}</span> of{' '}
-            <span className="font-bold text-slate-800 dark:text-slate-200">{totalRows}</span> entries
+            <span className="font-bold text-slate-800 dark:text-slate-200">{totalRows}</span>
           </span>
 
-          <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-custom">
-            <span>Rows per page:</span>
+          <div className="flex items-center gap-1.5 pl-2 sm:pl-3 border-l border-custom">
+            <span className="hidden sm:inline">Rows:</span>
             <select
               value={pageSize}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
@@ -240,7 +240,7 @@ const DataTableComponent = ({
         </div>
 
         {/* Right: Pagination Controls */}
-        <div className="flex items-center space-x-1.5 ml-auto">
+        <div className="flex items-center justify-center sm:justify-end space-x-1 sm:space-x-1.5 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => handlePageChange(0)}
@@ -255,7 +255,7 @@ const DataTableComponent = ({
             type="button"
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={!canPreviousPage}
-            className="px-2.5 py-1.5 rounded-lg border border-custom text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 transition"
+            className="px-2 py-1.5 rounded-lg border border-custom text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 transition"
             title="Previous Page"
           >
             <FiChevronLeft className="w-3.5 h-3.5" />
@@ -278,7 +278,7 @@ const DataTableComponent = ({
                   key={p}
                   type="button"
                   onClick={() => handlePageChange(p)}
-                  className={`min-w-[30px] h-7 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center ${
+                  className={`min-w-[28px] sm:min-w-[30px] h-7 px-1.5 sm:px-2 rounded-lg text-xs font-bold transition flex items-center justify-center ${
                     isCurrent
                       ? 'bg-custom-primary text-white shadow-xs'
                       : 'text-slate-700 dark:text-slate-300 border border-custom hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -294,7 +294,7 @@ const DataTableComponent = ({
             type="button"
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={!canNextPage}
-            className="px-2.5 py-1.5 rounded-lg border border-custom text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 transition"
+            className="px-2 py-1.5 rounded-lg border border-custom text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 transition"
             title="Next Page"
           >
             <span className="hidden md:inline">Next</span>

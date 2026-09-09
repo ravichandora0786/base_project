@@ -371,29 +371,31 @@ export default function ProfilePage() {
   const addrData: AddressData = profile?.address || {};
 
   return (
-    <div className="flex gap-6 flex-1 min-h-0">
-      {/* -- Left Sidebar -- */}
-      <div className="w-52 shrink-0">
+    <div className="flex flex-col md:flex-row gap-4 md:gap-6 flex-1 min-h-0">
+      {/* -- Left/Top Tabs Navigation -- */}
+      <div className="w-full md:w-52 shrink-0">
         <SectionCard>
-          {navItems.map((item) => (
-            <button
-              key={item.key}
-              onClick={() => {
-                dispatch(setActiveTab(item.key));
-                dispatch(setEditingPersonal(false));
-                dispatch(setEditingAddress(false));
-              }}
-              className={[
-                'w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold transition text-left border-b border-custom last:border-0',
-                activeTab === item.key
-                  ? 'bg-custom-primary/10 text-custom-primary'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/40',
-              ].join(' ')}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
+          <div className="flex md:flex-col overflow-x-auto md:overflow-visible">
+            {navItems.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => {
+                  dispatch(setActiveTab(item.key));
+                  dispatch(setEditingPersonal(false));
+                  dispatch(setEditingAddress(false));
+                }}
+                className={[
+                  'flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2.5 px-4 py-3 text-xs sm:text-sm font-semibold transition text-left border-b-2 md:border-b md:border-r-0 border-custom whitespace-nowrap',
+                  activeTab === item.key
+                    ? 'bg-custom-primary/10 text-custom-primary border-b-custom-primary md:border-b-custom'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/40 border-transparent md:border-custom',
+                ].join(' ')}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
         </SectionCard>
       </div>
 
