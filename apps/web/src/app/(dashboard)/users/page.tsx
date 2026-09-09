@@ -136,16 +136,18 @@ export default function UsersCRUDPage() {
                 <img
                   src={row.original.profile_image}
                   alt={row.original.name}
-                  className="w-9 h-9 rounded-full object-cover border border-custom"
+                  className="w-9 h-9 rounded-xl object-cover border border-custom shadow-2xs"
                   onError={() => setImgError(true)}
                 />
               ) : (
-                <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500">
-                  <FiUser className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-custom flex items-center justify-center text-slate-500 shadow-2xs">
+                  <FiUser className="w-4 h-4" />
                 </div>
               )}
               <div>
-                <div className="font-bold text-gray-900 dark:text-white capitalize">{row.original.name}</div>
+                <div className="font-bold text-slate-900 dark:text-white capitalize tracking-tight leading-snug">
+                  {row.original.name}
+                </div>
                 <div className="text-xs text-custom-muted">{row.original.email}</div>
               </div>
             </div>
@@ -155,21 +157,39 @@ export default function UsersCRUDPage() {
       {
         header: 'Phone',
         accessorKey: 'phone',
-        cell: ({ row }) => <span className="text-sm font-semibold">{row.original.phone || '-'}</span>,
+        cell: ({ row }) => (
+          <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+            {row.original.phone || '—'}
+          </span>
+        ),
       },
       {
         header: 'Gender',
         accessorKey: 'gender',
-        cell: ({ row }) => <span className="text-sm font-semibold capitalize">{row.original.gender || '-'}</span>,
+        cell: ({ row }) => (
+          <span className="text-sm font-medium text-slate-600 dark:text-slate-300 capitalize">
+            {row.original.gender || '—'}
+          </span>
+        ),
       },
       {
         header: 'Role',
         accessorKey: 'role.name',
-        cell: ({ row }) => (
-          <span className="font-bold text-gray-900 dark:text-white capitalize">
-            {row.original.role?.name || '-'}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const roleName = row.original.role?.name || '—';
+          const isAdmin = roleName.toLowerCase() === 'admin';
+          return (
+            <span
+              className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-tight border capitalize ${
+                isAdmin
+                  ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200/80 dark:border-amber-900/40'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              {roleName}
+            </span>
+          );
+        },
       },
       {
         header: 'Status',
@@ -203,31 +223,31 @@ export default function UsersCRUDPage() {
         header: () => <div className="text-right">Actions</div>,
         id: 'actions',
         cell: ({ row }) => (
-          <div className="text-right space-x-2">
+          <div className="text-right space-x-1.5">
             <LoadingButton
               variant="custom"
               onClick={() => handleOpenView(row.original)}
-              className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20 rounded-xl transition inline-flex items-center"
+              className="w-8 h-8 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-transparent hover:border-emerald-100 dark:hover:border-emerald-900/40 transition inline-flex items-center justify-center shadow-2xs"
               aria-label="View User Details"
-              title="View"
+              title="View User"
             >
               <FiEye className="w-4 h-4" />
             </LoadingButton>
             <LoadingButton
               variant="custom"
               onClick={() => handleOpenEdit(row.original)}
-              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition inline-flex items-center"
+              className="w-8 h-8 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 border border-transparent hover:border-blue-100 dark:hover:border-blue-900/40 transition inline-flex items-center justify-center shadow-2xs"
               aria-label="Edit User"
-              title="Edit"
+              title="Edit User"
             >
               <FiEdit2 className="w-4 h-4" />
             </LoadingButton>
             <LoadingButton
               variant="custom"
               onClick={() => handleDelete(row.original.id)}
-              className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition inline-flex items-center"
+              className="w-8 h-8 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border border-transparent hover:border-red-100 dark:hover:border-red-900/40 transition inline-flex items-center justify-center shadow-2xs"
               aria-label="Delete User"
-              title="Delete"
+              title="Delete User"
             >
               <FiTrash2 className="w-4 h-4" />
             </LoadingButton>
@@ -248,7 +268,7 @@ export default function UsersCRUDPage() {
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
       {/* Toolbar Search, Status Filter and Refresh */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-2">
         <div className="flex items-center space-x-3 flex-grow max-w-md">
           <div className="relative flex-grow">
             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">

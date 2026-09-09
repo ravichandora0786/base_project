@@ -76,6 +76,8 @@ export default function RolesCRUDPage() {
   const modalOpen = useAppSelector(selectRoleModalOpen);
   const editingRole = useAppSelector(selectEditingRole);
 
+  const rolesArray: Role[] = Array.isArray(rolesData) ? rolesData : [];
+
   useEffect(() => {
     dispatch(getAllRoles({}));
   }, [dispatch]);
@@ -92,9 +94,10 @@ export default function RolesCRUDPage() {
 
   const handleSubmit = async (values: any, { setSubmitting }: any) => {
     try {
+      const isAdmin = editingRole?.name?.toLowerCase() === 'admin';
       const payload = {
-        name: values.name,
-        is_active: values.is_active,
+        name: isAdmin ? 'admin' : values.name,
+        is_active: isAdmin ? true : values.is_active,
       };
 
       if (editingRole) {
@@ -137,6 +140,12 @@ export default function RolesCRUDPage() {
   };
 
   const handleDelete = async (id: string) => {
+    const roleToDelete = rolesArray.find((r) => r.id === id);
+    if (roleToDelete?.name?.toLowerCase() === 'admin') {
+      toast.error('Admin role cannot be deleted');
+      return;
+    }
+
     const isConfirmed = await confirm({
       title: 'Delete System Role?',
       message: 'Are you sure you want to delete this role? Users assigned to this role will lose access. This action cannot be undone.',
@@ -167,72 +176,104 @@ export default function RolesCRUDPage() {
       {
         header: 'Role Name',
         accessorKey: 'name',
-        cell: ({ getValue }) => <span className="capitalize font-bold">{getValue() as string}</span>,
+        cell: ({ getValue }) => {
+          const name = getValue() as string;
+          const isAdmin = name?.toLowerCase() === 'admin';
+          return (
+            <div className="flex items-center space-x-2.5">
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  isAdmin ? 'bg-amber-500 ring-4 ring-amber-500/10' : 'bg-blue-500 ring-4 ring-blue-500/10'
+                }`}
+              />
+              <span className="capitalize font-bold text-slate-900 dark:text-white tracking-tight">{name}</span>
+              {isAdmin && (
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-900/40">
+                  System
+                </span>
+              )}
+            </div>
+          );
+        },
       },
       {
         header: 'Status',
         accessorKey: 'is_active',
-        cell: ({ row }) => (
-          <CustomSwitch
-            name={`role-status-${row.original.id}`}
-            checked={row.original.is_active}
-            onChange={(e) => {
-              const newVal = e.target.checked;
-              dispatch(
-                updateRole({
-                  id: row.original.id,
-                  data: { name: row.original.name, is_active: newVal },
-                  onSuccess: () => {
-                    toast.success('Role status updated successfully');
-                    dispatch(getAllRoles({}));
-                    dispatch(checkAuthStart());
-                  },
-                  onFailure: (err: any) => {
-                    toast.error(err.message || 'Failed to update status');
-                  },
-                })
-              );
-            }}
-          />
-        ),
+        cell: ({ row }) => {
+          const isAdmin = row.original.name?.toLowerCase() === 'admin';
+          return (
+            <CustomSwitch
+              name={`role-status-${row.original.id}`}
+              checked={row.original.is_active}
+              disabled={isAdmin}
+              title={isAdmin ? 'Admin role cannot be deactivated' : undefined}
+              onChange={(e) => {
+                if (isAdmin) {
+                  toast.error('Admin role cannot be deactivated');
+                  return;
+                }
+                const newVal = e.target.checked;
+                dispatch(
+                  updateRole({
+                    id: row.original.id,
+                    data: { name: row.original.name, is_active: newVal },
+                    onSuccess: () => {
+                      toast.success('Role status updated successfully');
+                      dispatch(getAllRoles({}));
+                      dispatch(checkAuthStart());
+                    },
+                    onFailure: (err: any) => {
+                      toast.error(err.message || 'Failed to update status');
+                    },
+                  })
+                );
+              }}
+            />
+          );
+        },
       },
       {
         header: () => <div className="text-right">Actions</div>,
         id: 'actions',
-        cell: ({ row }) => (
-          <div className="text-right space-x-2">
-            <LoadingButton
-              variant="custom"
-              onClick={() => router.push(`/roles/${row.original.id}/permissions`)}
-              className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 rounded-xl transition inline-flex items-center"
-              aria-label="Edit Role Permissions"
-              title="Permissions"
-            >
-              <FiLock className="w-4 h-4" />
-            </LoadingButton>
-            <LoadingButton
-              variant="custom"
-              onClick={() => handleOpenEdit(row.original)}
-              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition inline-flex items-center"
-              aria-label="Edit Role"
-              title="Edit"
-            >
-              <FiEdit2 className="w-4 h-4" />
-            </LoadingButton>
-            <LoadingButton
-              variant="custom"
-              onClick={() => handleDelete(row.original.id)}
-              className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition inline-flex items-center"
-              aria-label="Delete Role"
-              title="Delete"
-            >
-              <FiTrash2 className="w-4 h-4" />
-            </LoadingButton>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const isAdmin = row.original.name?.toLowerCase() === 'admin';
+          return (
+            <div className="text-right space-x-1.5">
+              <LoadingButton
+                variant="custom"
+                onClick={() => router.push(`/roles/${row.original.id}/permissions`)}
+                className="w-8 h-8 rounded-lg text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/40 transition inline-flex items-center justify-center shadow-2xs"
+                aria-label="Edit Role Permissions"
+                title="Manage Permissions"
+              >
+                <FiLock className="w-4 h-4" />
+              </LoadingButton>
+              <LoadingButton
+                variant="custom"
+                onClick={() => handleOpenEdit(row.original)}
+                className="w-8 h-8 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 border border-transparent hover:border-blue-100 dark:hover:border-blue-900/40 transition inline-flex items-center justify-center shadow-2xs"
+                aria-label="Edit Role"
+                title="Edit Role"
+              >
+                <FiEdit2 className="w-4 h-4" />
+              </LoadingButton>
+              {!isAdmin && (
+                <LoadingButton
+                  variant="custom"
+                  onClick={() => handleDelete(row.original.id)}
+                  className="w-8 h-8 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border border-transparent hover:border-red-100 dark:hover:border-red-900/40 transition inline-flex items-center justify-center shadow-2xs"
+                  aria-label="Delete Role"
+                  title="Delete Role"
+                >
+                  <FiTrash2 className="w-4 h-4" />
+                </LoadingButton>
+              )}
+            </div>
+          );
+        },
       },
     ],
-    [dispatch, router]
+    [dispatch, router, rolesArray]
   );
 
   // Fetch roles with server-side filtering
@@ -244,23 +285,39 @@ export default function RolesCRUDPage() {
   };
 
   // Client-side pagination slicing (data already filtered by server)
-  const rolesArray: Role[] = Array.isArray(rolesData) ? rolesData : [];
-
   const slicedRoles = React.useMemo(() => {
     const start = pagination.pageIndex * pagination.pageSize;
     const end = start + pagination.pageSize;
     return rolesArray.slice(start, end);
   }, [rolesArray, pagination]);
 
+  const currentRoleFields = React.useMemo(() => {
+    const isAdmin = editingRole?.name?.toLowerCase() === 'admin';
+    return [
+      {
+        name: 'name',
+        label: 'Role Name',
+        type: 'text',
+        required: true,
+        disabled: isAdmin,
+      },
+      {
+        name: 'is_active',
+        label: 'Status Active',
+        type: 'toggle',
+        required: false,
+        disabled: isAdmin,
+      },
+    ];
+  }, [editingRole]);
+
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
       {/* Toolbar Search, Status Filter and Refresh */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-2">
         <div className="flex items-center space-x-3 flex-grow max-w-md">
           <div className="relative flex-grow">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-              <FiSearch className="w-4 h-4" />
-            </span>
+            <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="text"
               placeholder="Search by Name"
@@ -268,36 +325,37 @@ export default function RolesCRUDPage() {
               onChange={(e) => {
                 const val = e.target.value;
                 dispatch(setRoleSearchData({ search: val, status: statusFilter }));
+                dispatch(setRolePagination({ pageIndex: 0, pageSize: pagination.pageSize }));
                 fetchWithFilters(val, statusFilter);
               }}
-              className="w-full pl-10 pr-4 py-2 border border-custom hover:border-primary rounded-xl text-sm bg-white dark:bg-gray-800 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+              className="w-full pl-10 pr-4 py-2 border border-custom rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-custom-primary bg-custom-card transition"
             />
           </div>
 
-          <div className="w-40 shrink-0">
+          <div className="w-44">
             <SelectDropDown
-              name="status-filter"
-              options={STATUS_FILTER_OPTIONS as any}
-              value={STATUS_FILTER_OPTIONS.find((opt) => opt.value === statusFilter) as any}
-              onChange={(opt: any) => {
-                if (opt) {
-                  dispatch(setRoleSearchData({ search: searchQuery, status: opt.value }));
-                  fetchWithFilters(searchQuery, opt.value);
-                }
+              name="statusFilter"
+              options={STATUS_FILTER_OPTIONS}
+              value={STATUS_FILTER_OPTIONS.find((opt) => opt.value === statusFilter)}
+              onChange={(selected: any) => {
+                const val = selected?.value ?? 'all';
+                dispatch(setRoleSearchData({ search: searchQuery, status: val }));
+                dispatch(setRolePagination({ pageIndex: 0, pageSize: pagination.pageSize }));
+                fetchWithFilters(searchQuery, val);
               }}
-              isSearchable={false}
-              isClearable={false}
+              placeholder="All Status"
             />
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2">
           <LoadingButton
-            variant="custom"
             onClick={() => {
               dispatch(setRoleSearchData({ search: '', status: 'all' }));
+              dispatch(setRolePagination({ pageIndex: 0, pageSize: pagination.pageSize }));
               dispatch(getAllRoles({}));
             }}
+            variant="custom"
             className="p-2.5 border border-custom rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 transition"
             title="Refresh Data"
           >
@@ -342,7 +400,7 @@ export default function RolesCRUDPage() {
             {({ values, errors, touched, handleBlur, setFieldValue, isSubmitting }) => (
               <Form className="space-y-4">
                 <RenderFields
-                  fields={roleFields}
+                  fields={currentRoleFields}
                   values={values}
                   errors={errors}
                   touched={touched}

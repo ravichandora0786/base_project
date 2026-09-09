@@ -35,7 +35,15 @@ export class RolesService {
   }
 
   async update(id: string, dto: UpdateRoleDto) {
-    await this.findOne(id);
+    const role = await this.findOne(id);
+    if (role.name.toLowerCase() === 'admin') {
+      if (dto.is_active === false) {
+        throw new ConflictException('Admin role cannot be deactivated');
+      }
+      if (dto.name && dto.name.toLowerCase() !== 'admin') {
+        throw new ConflictException('Admin role cannot be renamed');
+      }
+    }
     if (dto.name) {
       const existing = await this.prisma.role.findFirst({
         where: { name: dto.name.toLowerCase(), NOT: { id } },
@@ -54,7 +62,10 @@ export class RolesService {
   }
 
   async remove(id: string) {
-    await this.findOne(id);
+    const role = await this.findOne(id);
+    if (role.name.toLowerCase() === 'admin') {
+      throw new ConflictException('Admin role cannot be deleted');
+    }
     return this.prisma.role.delete({
       where: { id },
     });

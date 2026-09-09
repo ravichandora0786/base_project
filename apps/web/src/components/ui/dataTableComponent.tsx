@@ -7,9 +7,17 @@ import {
   getSortedRowModel,
   flexRender,
   ColumnDef,
+  SortingState,
 } from '@tanstack/react-table';
+import {
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronsLeft,
+  FiChevronsRight,
+  FiChevronUp,
+  FiChevronDown,
+} from 'react-icons/fi';
 import NoRecordFoundComponent from './noRecordFound';
-import LoadingButton from './loadingButton';
 
 interface DataTableComponentProps {
   columns: ColumnDef<any, any>[];
@@ -33,65 +41,159 @@ const DataTableComponent = ({
   columnVisibility,
   setColumnVisibility,
 }: DataTableComponentProps) => {
+  const [sorting, setSorting] = React.useState<SortingState>([]);
   const defaultData = React.useMemo(() => [], []);
+
+  const pageSize = pagination?.pageSize || 10;
+  const currentPage = pagination?.pageIndex || 0;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
 
   const table = useReactTable({
     data: data ?? defaultData,
     columns,
     rowCount: totalRows,
+    pageCount: totalPages,
     state: {
       pagination,
       columnVisibility,
+      sorting,
     },
     onPaginationChange: (updater) => {
       const newPagination =
         typeof updater === 'function' ? updater(pagination) : updater;
       setPagination(newPagination);
     },
+    onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     manualPagination: true,
-    debugTable: true,
   });
 
+  const startRow = totalRows === 0 ? 0 : currentPage * pageSize + 1;
+  const endRow = Math.min((currentPage + 1) * pageSize, totalRows);
+  const canPreviousPage = currentPage > 0;
+  const canNextPage = currentPage < totalPages - 1;
+
+  const handlePageChange = (newPageIndex: number) => {
+    if (newPageIndex >= 0 && newPageIndex < totalPages) {
+      setPagination({
+        ...pagination,
+        pageIndex: newPageIndex,
+      });
+    }
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPagination({
+      pageIndex: 0,
+      pageSize: newPageSize,
+    });
+  };
+
+  const getPageNumbers = () => {
+    const delta = 1;
+    const range: (number | string)[] = [];
+
+    if (totalPages <= 5) {
+      for (let i = 0; i < totalPages; i++) {
+        range.push(i);
+      }
+    } else {
+      range.push(0);
+
+      if (currentPage > 2) {
+        range.push('dots-1');
+      }
+
+      const start = Math.max(1, currentPage - delta);
+      const end = Math.min(totalPages - 2, currentPage + delta);
+
+      for (let i = start; i <= end; i++) {
+        if (!range.includes(i)) {
+          range.push(i);
+        }
+      }
+
+      if (currentPage < totalPages - 3) {
+        range.push('dots-2');
+      }
+
+      if (!range.includes(totalPages - 1)) {
+        range.push(totalPages - 1);
+      }
+    }
+
+    return range;
+  };
+
   return (
-    <div className="table-container flex-1 flex flex-col min-h-0 gap-4">
-      <div className="table-wrapper flex-grow overflow-auto bg-custom-card border border-custom rounded-2xl shadow-sm min-h-0">
-        <table className="table-base w-full text-left border-collapse">
-          <thead className="table-head sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 border-b border-custom shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.1)] dark:shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.1)]">
+    <div className="flex-1 flex flex-col min-h-0 bg-custom-card border border-custom shadow-xs overflow-hidden">
+      {/* Table Scrollable Body */}
+      <div className="flex-grow overflow-auto min-h-0 relative">
+        <table className="w-full text-left border-collapse">
+          {/* Table Header */}
+          <thead className="sticky top-0 z-10 bg-slate-50/90 dark:bg-slate-800/90 backdrop-blur-md border-b border-custom">
             {table.getHeaderGroups()?.map((headerGroup) => (
               <tr key={headerGroup.id}>
-                {headerGroup.headers?.map((header) => (
-                  <th
-                    key={header.id}
-                    colSpan={header.colSpan}
-                    className="table-head-cell p-4 text-xs font-bold text-custom-muted uppercase tracking-wider"
-                  >
-                    {header.isPlaceholder ? null : (
-                      <div>
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                      </div>
-                    )}
-                  </th>
-                ))}
+                {headerGroup.headers?.map((header) => {
+                  const canSort = header.column.getCanSort();
+                  const isSorted = header.column.getIsSorted();
+
+                  return (
+                    <th
+                      key={header.id}
+                      colSpan={header.colSpan}
+                      onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                      className={`px-2 py-2 text-[11px] font-bold text-custom-muted uppercase tracking-wider select-none whitespace-nowrap ${
+                        canSort
+                          ? 'cursor-pointer hover:text-slate-900 dark:hover:text-slate-100 transition-colors'
+                          : ''
+                      }`}
+                    >
+                      {header.isPlaceholder ? null : (
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex-grow">
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                          </div>
+                          {canSort && (
+                            <span className="inline-flex items-center shrink-0">
+                              {isSorted === 'asc' ? (
+                                <FiChevronUp className="w-3.5 h-3.5 text-custom-primary" />
+                              ) : isSorted === 'desc' ? (
+                                <FiChevronDown className="w-3.5 h-3.5 text-custom-primary" />
+                              ) : (
+                                <span className="opacity-0 group-hover:opacity-40 text-[9px] leading-none">
+                                  ▲
+                                </span>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </th>
+                  );
+                })}
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y divide-custom">
+
+          {/* Table Rows */}
+          <tbody>
             {table.getRowModel()?.rows?.length > 0 ? (
-              table.getRowModel()?.rows?.map((row, index) => (
-                <tr 
-                  key={row.id} 
-                  className={`table-row hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition ${
-                    index % 2 === 1 ? 'bg-custom-primary/5 dark:bg-custom-primary/5' : ''
-                  }`}
+              table.getRowModel().rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className="table-row-striped"
                 >
-                  {row.getVisibleCells()?.map((cell) => (
-                    <td key={cell.id} className="table-cell p-4 text-sm font-semibold">
+                  {row.getVisibleCells().map((cell) => (
+                    <td
+                      key={cell.id}
+                      className="px-2 py-1 text-sm text-slate-700 dark:text-slate-200 align-middle whitespace-nowrap"
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -102,7 +204,7 @@ const DataTableComponent = ({
               ))
             ) : (
               <tr>
-                <td colSpan={columns.length} className="py-6 text-center">
+                <td colSpan={columns.length} className="py-12 text-center">
                   <NoRecordFoundComponent />
                 </td>
               </tr>
@@ -111,75 +213,105 @@ const DataTableComponent = ({
         </table>
       </div>
 
-      {/* Pagination Controls */}
-      {totalRows > pagination?.pageSize && (
-        <div className="pagination-wrapper flex justify-center mt-6">
-          <ul className="pagination-list flex items-center space-x-1">
-            <li>
-              <LoadingButton
-                variant="custom"
-                className="pagination-btn px-3 py-1.5 border border-custom rounded-lg disabled:opacity-50 text-sm font-semibold transition"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
-                Previous
-              </LoadingButton>
-            </li>
+      {/* Integrated Bottom Pagination & Summary Footer */}
+      <div className="border-t border-custom px-2 py-1 bg-slate-50/50 dark:bg-slate-900/30 flex items-center justify-between flex-wrap gap-3 select-none">
+        {/* Left: Entries Info & Rows Per Page */}
+        <div className="flex items-center gap-3 text-xs text-custom-muted font-medium">
+          <span>
+            Showing <span className="font-bold text-slate-800 dark:text-slate-200">{startRow}</span> to{' '}
+            <span className="font-bold text-slate-800 dark:text-slate-200">{endRow}</span> of{' '}
+            <span className="font-bold text-slate-800 dark:text-slate-200">{totalRows}</span> entries
+          </span>
 
-            {table.getCanPreviousPage() && (
-              <li>
-                <LoadingButton
-                  variant="custom"
-                  className="px-3 py-1.5 border border-custom rounded-lg text-sm font-semibold hover:bg-gray-50 transition"
-                  onClick={() =>
-                    table.setPageIndex(
-                      table.getState().pagination.pageIndex - 1
-                    )
-                  }
-                >
-                  {table.getState().pagination.pageIndex}
-                </LoadingButton>
-              </li>
-            )}
-
-            <li>
-              <LoadingButton
-                variant="custom"
-                className="px-3 py-1.5 border border-indigo-600 bg-indigo-600 text-white font-bold rounded-lg text-sm transition"
-              >
-                {table.getState().pagination.pageIndex + 1}
-              </LoadingButton>
-            </li>
-
-            {table.getCanNextPage() && (
-              <li>
-                <LoadingButton
-                  variant="custom"
-                  className="px-3 py-1.5 border border-custom rounded-lg text-sm font-semibold hover:bg-gray-50 transition"
-                  onClick={() =>
-                    table.setPageIndex(
-                      table.getState().pagination.pageIndex + 1
-                    )
-                  }
-                >
-                  {table.getState().pagination.pageIndex + 2}
-                </LoadingButton>
-              </li>
-            )}
-
-            <li>
-              <LoadingButton
-                variant="custom"
-                className="pagination-btn px-3 py-1.5 border border-custom rounded-lg disabled:opacity-50 text-sm font-semibold transition"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
-                Next
-              </LoadingButton>
-            </li>
-          </ul>
+          <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-custom">
+            <span>Rows per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              className="bg-custom-card border border-custom text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-custom-primary cursor-pointer transition shadow-2xs"
+            >
+              {[10, 25, 50, 100].map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      )}
+
+        {/* Right: Pagination Controls */}
+        <div className="flex items-center space-x-1.5 ml-auto">
+          <button
+            type="button"
+            onClick={() => handlePageChange(0)}
+            disabled={!canPreviousPage}
+            className="p-1.5 rounded-lg border border-custom text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            title="First Page"
+          >
+            <FiChevronsLeft className="w-4 h-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={!canPreviousPage}
+            className="px-2.5 py-1.5 rounded-lg border border-custom text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 transition"
+            title="Previous Page"
+          >
+            <FiChevronLeft className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Prev</span>
+          </button>
+
+          <div className="flex items-center space-x-1">
+            {getPageNumbers().map((p, idx) => {
+              if (typeof p === 'string') {
+                return (
+                  <span key={`${p}-${idx}`} className="px-1 text-xs text-slate-400">
+                    •••
+                  </span>
+                );
+              }
+
+              const isCurrent = p === currentPage;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => handlePageChange(p)}
+                  className={`min-w-[30px] h-7 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center ${
+                    isCurrent
+                      ? 'bg-custom-primary text-white shadow-xs'
+                      : 'text-slate-700 dark:text-slate-300 border border-custom hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {p + 1}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={!canNextPage}
+            className="px-2.5 py-1.5 rounded-lg border border-custom text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 transition"
+            title="Next Page"
+          >
+            <span className="hidden md:inline">Next</span>
+            <FiChevronRight className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handlePageChange(totalPages - 1)}
+            disabled={!canNextPage}
+            className="p-1.5 rounded-lg border border-custom text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            title="Last Page"
+          >
+            <FiChevronsRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

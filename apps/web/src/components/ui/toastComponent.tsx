@@ -6,7 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 const ToastComponent = () => (
   <ToastContainer
-    position="top-right"
+    position="top-center"
     autoClose={2000}
     hideProgressBar={false}
     newestOnTop={false}
@@ -15,7 +15,7 @@ const ToastComponent = () => (
     pauseOnFocusLoss
     draggable
     pauseOnHover
-    theme="colored"
+    theme="light"
     transition={Bounce}
     style={{ zIndex: 999999 }}
   />

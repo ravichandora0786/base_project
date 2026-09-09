@@ -1,9 +1,8 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import { ReduxProvider } from '../store/provider';
-import { ToastContainer } from 'react-toastify';
+import ToastComponent from '../components/ui/toastComponent';
 import '../styles/globals.css';
-import 'react-toastify/dist/ReactToastify.css';
 
 import RouteGuard from '../components/ui/routeGuard';
 
@@ -24,17 +23,7 @@ export default function RootLayout({
           <RouteGuard>
             {children}
           </RouteGuard>
-          <ToastContainer 
-            position="top-right"
-            autoClose={3000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-          />
+          <ToastComponent />
         </ReduxProvider>
       </body>
     </html>

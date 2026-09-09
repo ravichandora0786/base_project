@@ -29,7 +29,7 @@ export default function DashboardLayout({
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-custom-background transition duration-200">
         <Header collapsed={collapsed} onToggleSidebar={() => setCollapsed(!collapsed)} />
         
-        <main className="flex-1 p-4 md:p-6 flex flex-col min-h-0 overflow-hidden">
+        <main className="flex-1 p-2 md:p-2 flex flex-col min-h-0 overflow-hidden">
           <div className="w-full flex-1 flex flex-col min-h-0">
             {children}
           </div>

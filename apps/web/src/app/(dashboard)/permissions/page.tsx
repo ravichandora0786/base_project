@@ -195,7 +195,7 @@ export default function PermissionsCRUDPage() {
               dispatch(
                 updatePermission({
                   id: row.original.id,
-                  data: { ...row.original, is_active: newVal },
+                  data: { is_active: newVal },
                   onSuccess: () => {
                     toast.success('Permission status updated successfully');
                     dispatch(getAllPermissions({}));
@@ -214,21 +214,22 @@ export default function PermissionsCRUDPage() {
         header: () => <div className="text-right">Actions</div>,
         id: 'actions',
         cell: ({ row }) => (
-          <div className="text-right space-x-2">
+          <div className="text-right space-x-1.5">
             <LoadingButton
               variant="custom"
               onClick={() => handleOpenEdit(row.original)}
-              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition inline-flex items-center"
+              className="w-8 h-8 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 border border-transparent hover:border-blue-100 dark:hover:border-blue-900/40 transition inline-flex items-center justify-center shadow-2xs"
               aria-label="Edit Permission"
-              title="Edit"
+              title="Edit Permission"
             >
               <FiEdit2 className="w-4 h-4" />
             </LoadingButton>
             <LoadingButton
               variant="custom"
               onClick={() => handleDelete(row.original.id)}
-              className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition inline-flex items-center"
+              className="w-8 h-8 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border border-transparent hover:border-red-100 dark:hover:border-red-900/40 transition inline-flex items-center justify-center shadow-2xs"
               aria-label="Delete Permission"
+              title="Delete Permission"
             >
               <FiTrash2 className="w-4 h-4" />
             </LoadingButton>
@@ -259,7 +260,7 @@ export default function PermissionsCRUDPage() {
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
       {/* Toolbar Search, Status Filter and Refresh */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-2">
         <div className="flex items-center space-x-3 flex-grow max-w-md">
           <div className="relative flex-grow">
             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">

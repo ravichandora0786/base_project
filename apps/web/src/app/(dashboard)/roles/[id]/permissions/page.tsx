@@ -186,7 +186,7 @@ export default function EditRolePermissionsPage() {
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
       {/* Toolbar Search, Selector and Refresh */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-2">
         <div className="flex items-center space-x-3 flex-grow max-w-md">
           <div className="relative flex-grow">
             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">

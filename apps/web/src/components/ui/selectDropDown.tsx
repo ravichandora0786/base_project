@@ -5,7 +5,7 @@ import Select from 'react-select';
 
 interface SelectDropDownProps {
   name: string;
-  options: any[];
+  options: readonly any[] | any[];
   value: any;
   error?: string;
   placeholder?: string;
