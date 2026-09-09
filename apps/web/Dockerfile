@@ -12,8 +12,8 @@ RUN npm ci
 # Copy frontend codebase
 COPY apps/web/ ./apps/web/
 
-# Build Next.js app
-RUN npm run build --workspace=apps/web
+# Build Next.js app with production environment
+RUN npm run build:prod --workspace=apps/web
 
 # --- PRODUCTION STAGE ---
 FROM node:20-alpine AS runner
@@ -35,4 +35,4 @@ COPY --from=builder /app/apps/web/next.config.ts ./apps/web/next.config.ts
 EXPOSE 3000
 
 # Start next server
-CMD ["npm", "run", "start", "--workspace=apps/web"]
+CMD ["npm", "run", "start:prod", "--workspace=apps/web"]

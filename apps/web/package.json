@@ -3,9 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "npx dotenv -e .env.development -- next dev",
+    "dev:dev": "npx dotenv -e .env.development -- next dev",
+    "dev:prod": "npx dotenv -e .env.production -- next dev",
     "build": "next build",
+    "build:dev": "npx dotenv -e .env.development -- next build",
+    "build:prod": "npx dotenv -e .env.production -- next build",
     "start": "next start",
+    "start:dev": "npx dotenv -e .env.development -- next start",
+    "start:prod": "npx dotenv -e .env.production -- next start",
     "lint": "next lint"
   },
   "dependencies": {

@@ -185,27 +185,44 @@ Visit the application at [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 🏗️ Building for Production
+## 🏗️ Building & Running (Dev vs Prod Environments)
 
-To verify types and generate production builds:
+The project supports dedicated builds and runtime setups for both **Development** and **Production** environments.
 
-* **Type Check:**
+### 🌐 Frontend (Next.js) Commands Overview
+
+Environment files:
+- **Development:** `apps/web/.env.development` (`NEXT_PUBLIC_API_URL=http://localhost:4000/api`)
+- **Production:** `apps/web/.env.production` (`NEXT_PUBLIC_API_URL=https://base-project-backend-td78.onrender.com/api`)
+
+| Operation | Root Command | Inside `apps/web` Command | Loaded Env File | Target API Backend |
+| :--- | :--- | :--- | :--- | :--- |
+| **Dev Mode (Local API)** | `npm run dev:web` | `npm run dev` | `apps/web/.env.development` | `http://localhost:4000/api` |
+| **Dev Mode (Prod API)** | `npm run dev:web:prod` | `npm run dev:prod` | `apps/web/.env.production` | Render Backend |
+| **Build for Development** | `npm run build:web:dev` | `npm run build:dev` | `apps/web/.env.development` | `http://localhost:4000/api` |
+| **Build for Production** | `npm run build:web:prod` | `npm run build:prod` | `apps/web/.env.production` | Render Backend |
+| **Start Dev Production Build** | `npm run start:web:dev` | `npm run start:dev` | `apps/web/.env.development` | `http://localhost:4000/api` |
+| **Start Production Server** | `npm run start:web:prod` | `npm run start:prod` | `apps/web/.env.production` | Render Backend |
+
+---
+
+### ⚙️ Backend (NestJS) Commands Overview
+
+| Operation | Root Command | Inside `apps/api` Command | Loaded Env File |
+| :--- | :--- | :--- | :--- |
+| **Dev Server (Hot Reload)** | `npm run dev:api` | `npm run start:dev` | `apps/api/.env.development` |
+| **Compile API** | `npm run build --workspace=apps/api` | `npm run build` | N/A (Compiles to `dist/`) |
+| **Production Server** | `npm run prod:api` | `npm run start:prod` | `apps/api/.env.production` |
+
+---
+
+### 🔍 Verification & Type Checking
+* **Frontend Type Check:**
   ```bash
   npx tsc --noEmit --workspace=apps/web
   ```
-* **Compile Frontend:**
+* **Frontend Linting:**
   ```bash
-  npm run build:web
+  npm run lint --workspace=apps/web
   ```
-* **Compile Backend:**
-  ```bash
-  npm run build --workspace=apps/api
-  ```
-* **Start Production Frontend:**
-  ```bash
-  npm run start:web
-  ```
-* **Start Production Backend:**
-  ```bash
-  npm run prod:api
-  ```
+
