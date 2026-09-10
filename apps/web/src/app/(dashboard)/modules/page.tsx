@@ -120,8 +120,16 @@ export default function ModulesCRUDPage() {
     [dispatch, searchQuery, statusFilter]
   );
 
+  const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
-    fetchModules(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
+    fetchModules(1, 10, '', 'all');
+
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      dispatch(setModuleSearchData({ search: '', status: 'all' }));
+      dispatch(setModulePagination({ pageIndex: 0, pageSize: 10 }));
+    };
   }, [dispatch]);
 
   const handleOpenCreate = () => {
@@ -270,8 +278,6 @@ export default function ModulesCRUDPage() {
     ],
     [dispatch, fetchModules, pagination, searchQuery, statusFilter]
   );
-
-  const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleSearchChange = (val: string) => {
     dispatch(setModuleSearchData({ search: val, status: statusFilter }));

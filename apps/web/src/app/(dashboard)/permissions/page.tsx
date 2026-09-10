@@ -107,8 +107,16 @@ export default function PermissionsCRUDPage() {
     [dispatch, searchQuery, statusFilter]
   );
 
+  const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
-    fetchPermissions(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
+    fetchPermissions(1, 10, '', 'all');
+
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      dispatch(setPermissionSearchData({ search: '', status: 'all' }));
+      dispatch(setPermissionPagination({ pageIndex: 0, pageSize: 10 }));
+    };
   }, [dispatch]);
 
   const handleOpenCreate = () => {
@@ -252,8 +260,6 @@ export default function PermissionsCRUDPage() {
     ],
     [dispatch, fetchPermissions, pagination, searchQuery, statusFilter]
   );
-
-  const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleSearchChange = (val: string) => {
     dispatch(setPermissionSearchData({ search: val, status: statusFilter }));

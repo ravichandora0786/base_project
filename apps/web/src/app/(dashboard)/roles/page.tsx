@@ -88,8 +88,16 @@ export default function RolesCRUDPage() {
     [dispatch, searchQuery, statusFilter]
   );
 
+  const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
-    fetchRoles(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
+    fetchRoles(1, 10, '', 'all');
+
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      dispatch(setRoleSearchData({ search: '', status: 'all' }));
+      dispatch(setRolePagination({ pageIndex: 0, pageSize: 10 }));
+    };
   }, [dispatch]);
 
   const handleOpenCreate = () => {
@@ -270,8 +278,6 @@ export default function RolesCRUDPage() {
       },
     ];
   }, [editingRole]);
-
-  const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleSearchChange = (val: string) => {
     dispatch(setRoleSearchData({ search: val, status: statusFilter }));

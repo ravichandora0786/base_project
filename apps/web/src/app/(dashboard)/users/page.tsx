@@ -141,12 +141,20 @@ export default function UsersCRUDPage() {
     [dispatch, searchQuery, statusFilter]
   );
 
-  useEffect(() => {
-    fetchUsers(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
-    dispatch(getAllRoles({}));
-  }, [dispatch]);
-
   const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    fetchUsers(1, 10, '', 'all');
+    dispatch(getAllRoles({}));
+
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+      dispatch(setUserSearchData({ search: '', status: 'all' }));
+      dispatch(setUserPagination({ pageIndex: 0, pageSize: 10 }));
+    };
+  }, [dispatch]);
 
   const handleSearchChange = (val: string) => {
     dispatch(setUserSearchData({ search: val, status: statusFilter }));
