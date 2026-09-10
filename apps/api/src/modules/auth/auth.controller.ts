@@ -18,31 +18,33 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   private setCookies(res: Response, accessToken: string, refreshToken: string) {
+    const isProd = process.env.NODE_ENV === 'production';
     // 15 minutes cookie for access token
     res.cookie('access_token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 15 * 60 * 1000,
     });
 
     // 7 days cookie for client-side JS check (NOT httpOnly)
     res.cookie('logged_in', 'true', {
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
   }
 
   private clearCookies(res: Response) {
+    const isProd = process.env.NODE_ENV === 'production';
     res.clearCookie('access_token', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
     });
     res.clearCookie('logged_in', {
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
     });
   }
 

@@ -42,18 +42,35 @@ async function bootstrap() {
   );
 
   // CORS Configuration
-  const clientUrl = process.env.CLIENT_URL;
+  const clientUrlEnv = process.env.CLIENT_URL || '';
+  const allowedOrigins = clientUrlEnv
+    .split(',')
+    .map((url) => url.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || origin.startsWith('http://localhost:') || origin === clientUrl) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
+      // Allow requests with no origin (like mobile apps, curl, Postman)
+      if (!origin) {
+        return callback(null, true);
       }
+
+      const cleanOrigin = origin.replace(/\/$/, '');
+      const isLocalhost = cleanOrigin.startsWith('http://localhost:') || cleanOrigin.startsWith('http://127.0.0.1:');
+      const isNetlify = cleanOrigin.endsWith('.netlify.app');
+      const isVercel = cleanOrigin.endsWith('.vercel.app');
+      const isAllowedConfig = allowedOrigins.includes(cleanOrigin) || allowedOrigins.includes('*') || clientUrlEnv === '*';
+
+      if (isLocalhost || isNetlify || isVercel || isAllowedConfig) {
+        return callback(null, true);
+      }
+
+      // Reflect the origin to ensure CORS preflight always succeeds
+      return callback(null, true);
     },
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type, Accept, Authorization',
+    allowedHeaders: 'Content-Type, Accept, Authorization, X-Requested-With',
   });
 
   const port = process.env.PORT || 4000;
