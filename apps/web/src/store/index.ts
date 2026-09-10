@@ -6,6 +6,7 @@ import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
 import rootReducer, { RootState } from './rootReducer';
 import rootSaga from './rootSaga';
 import { injectStore } from '@/lib/api/client';
+import { setPersistorRef, purgeStore } from './persistorHelper';
 
 const persistConfig = {
   key: 'root',
@@ -28,6 +29,8 @@ export const store = configureStore({
 injectStore(store);
 
 export const persistor = persistStore(store);
+setPersistorRef(persistor);
+export { purgeStore };
 
 sagaMiddleware.run(rootSaga);
 

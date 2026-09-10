@@ -1,5 +1,6 @@
 // Public (Unauthenticated) Routes
 export const PUBLIC_ROUTES = [
+  '/',
   '/login',
   '/register',
 ];

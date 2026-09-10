@@ -52,7 +52,7 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       try {
         // Attempt to refresh token (NestJS rotates cookies)
-        const refreshToken = storeRef?.getState()?.auth?.refreshToken;
+        const refreshToken = storeRef?.getState()?.auth?.refreshToken || Cookies.get('refresh_token');
         const response = await apiClient.post('/auth/refresh', {}, {
           headers: {
             Authorization: `Bearer ${refreshToken}`,
@@ -62,6 +62,7 @@ apiClient.interceptors.response.use(
 
         if (newAccessToken) {
           Cookies.set('access_token', newAccessToken, { expires: 1 });
+          Cookies.set('logged_in', 'true', { expires: 7 });
           if (storeRef) {
             storeRef.dispatch(setAccessToken(newAccessToken));
           }
@@ -73,7 +74,12 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         // If refresh fails, clear auth cookies, store state and redirect to login
         Cookies.remove('access_token');
+        Cookies.remove('refresh_token');
         Cookies.remove('logged_in');
+        if (typeof window !== 'undefined') {
+          localStorage.clear();
+          sessionStorage.clear();
+        }
         if (storeRef) {
           storeRef.dispatch({ type: 'auth/logoutSuccess' });
         }

@@ -2,6 +2,7 @@ import { call, put, takeLatest } from 'redux-saga/effects';
 import { authService } from '../services/auth.service';
 import { toast } from 'react-toastify';
 import Cookies from 'js-cookie';
+import { purgeStore } from '@/store/persistorHelper';
 import {
   loginStart,
   loginSuccess,
@@ -21,8 +22,12 @@ function* handleLogin(action: any): Generator<any, void, any> {
   try {
     const data = yield call(authService.login, action.payload);
     
-    // Save authentication tokens in cookies for RouteGuard validation
+    // Save authentication tokens and logged_in cookie for client-side state and RouteGuard
     Cookies.set('access_token', data.accessToken, { expires: 1 });
+    if (data.refreshToken) {
+      Cookies.set('refresh_token', data.refreshToken, { expires: 7 });
+    }
+    Cookies.set('logged_in', 'true', { expires: 7 });
 
     // Fetch the full profile (with permissions)
     const fullUser = yield call(authService.getMe);
@@ -57,16 +62,22 @@ function* handleLogout(): Generator<any, void, any> {
     yield call(authService.logout);
     // Remove authentication cookies
     Cookies.remove('access_token');
+    Cookies.remove('refresh_token');
+    Cookies.remove('logged_in');
     
     yield put(logoutSuccess());
+    yield call(purgeStore);
     toast.info('Logged out successfully.');
   } catch (error: any) {
     const errorMsg = error.response?.data?.message || 'Logout failed.';
     
-    // Fallback: clear cookies anyway to allow user reset
+    // Fallback: clear cookies and storage anyway to allow user reset
     Cookies.remove('access_token');
+    Cookies.remove('refresh_token');
+    Cookies.remove('logged_in');
     
     yield put(logoutSuccess());
+    yield call(purgeStore);
     toast.info('Session reset.');
   }
 }
@@ -74,12 +85,15 @@ function* handleLogout(): Generator<any, void, any> {
 function* handleCheckAuth(): Generator<any, void, any> {
   try {
     const user = yield call(authService.getMe);
+    Cookies.set('logged_in', 'true', { expires: 7 });
     yield put(checkAuthSuccess({
       user,
       accessToken: Cookies.get('access_token'),
     }));
   } catch (error: any) {
     Cookies.remove('access_token');
+    Cookies.remove('refresh_token');
+    Cookies.remove('logged_in');
     yield put(checkAuthFailure());
   }
 }

@@ -6,7 +6,7 @@ import { useAppSelector } from '@/store';
  * e.g. permissions.userCreate -> true / false
  */
 const useAllPermissions = () => {
-  const { user } = useAppSelector((state) => state.auth);
+  const { user } = useAppSelector((state) => state?.auth || {}) as any;
 
   return useMemo(() => {
     const map: Record<string, boolean> = {};
@@ -42,7 +42,8 @@ const useAllPermissions = () => {
         .map((word, idx) => (idx === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)))
         .join('');
 
-      codes.forEach((code) => {
+      const permCodes = Array.isArray(codes) ? (codes as string[]) : [];
+      permCodes.forEach((code: string) => {
         // Normalize permission name: e.g. "view_detail" -> "ViewDetail"
         const normalizedPerm = code
           .toLowerCase()

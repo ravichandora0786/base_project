@@ -12,7 +12,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, isLoading } = useAppSelector((state) => state?.auth || {}) as any;
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = React.useState(false);
@@ -35,7 +35,11 @@ export default function DashboardLayout({
   }, []);
 
   if (!isAuthenticated) {
-    return null;
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[#FCEEA7]">
+        <div className="w-10 h-10 border-4 border-[#14532D] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (

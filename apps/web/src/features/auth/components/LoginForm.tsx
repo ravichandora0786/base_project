@@ -12,7 +12,7 @@ import LoadingButton from '@/components/ui/loadingButton';
 
 export function LoginForm() {
   const dispatch = useAppDispatch();
-  const { isLoading, error } = useAppSelector((state) => state.auth);
+  const { isLoading, error } = useAppSelector((state) => state?.auth || {}) as any;
   const [showPassword, setShowPassword] = useState(false);
 
   React.useEffect(() => {

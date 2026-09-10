@@ -34,7 +34,7 @@ export default function UsersCRUDPage() {
   const dispatch = useAppDispatch();
   const confirm = useConfirm();
   const router = useRouter();
-  const { user: currentUser } = useAppSelector((state) => state.auth);
+  const { user: currentUser } = useAppSelector((state) => state?.auth || {}) as any;
 
   // Redux Selectors
   const usersData = useAppSelector(selectAllUserDataList);

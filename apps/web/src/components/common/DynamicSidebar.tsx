@@ -33,7 +33,7 @@ export function DynamicSidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAppSelector((state) => state.auth);
+  const { user } = useAppSelector((state) => state?.auth || {}) as any;
   const [menuItems, setMenuItems] = React.useState<MenuItemType[]>([]);
   const [mounted, setMounted] = React.useState(false);
 

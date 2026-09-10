@@ -7,12 +7,12 @@ import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 
 export default function LoginPage() {
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const { isAuthenticated } = useAppSelector((state) => state?.auth || {}) as any;
   const router = useRouter();
 
   useEffect(() => {
-    const loggedIn = Cookies.get('logged_in') === 'true';
-    if (isAuthenticated && loggedIn) {
+    const loggedIn = Cookies.get('logged_in') === 'true' || !!Cookies.get('access_token');
+    if (isAuthenticated || loggedIn) {
       router.push('/dashboard');
     }
   }, [isAuthenticated, router]);

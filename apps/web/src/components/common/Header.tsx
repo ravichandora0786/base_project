@@ -25,7 +25,7 @@ export function Header({
   const [mounted, setMounted] = useState(false);
   const dispatch = useAppDispatch();
   const confirm = useConfirm();
-  const { user } = useAppSelector((state) => state.auth);
+  const { user } = useAppSelector((state) => state?.auth || {}) as any;
 
   // Avoid Hydration Mismatch
   useEffect(() => {

@@ -88,90 +88,230 @@ The web application is engineered for fluid responsiveness across all viewport s
 
 ---
 
-## 🗄️ Database Migrations & Environment Handling
+## ⚡ Master Command Cheat Sheet (Dev vs Prod)
 
-The project strictly separates **Development** and **Production** environments using dedicated `.env` files:
-- **Development:** `apps/api/.env.development`
-- **Production:** `apps/api/.env.production`
+All commands can be executed either directly from the **Root Directory** or from inside individual workspace folders (`apps/api` or `apps/web`).
 
-### Migration Commands Overview
+### 1. 🌐 Frontend (Next.js) Commands
 
-All commands can be executed directly from the **root directory** or from **`apps/api`**:
-
-| Operation | Development Command | Production Command | Target Env File |
-| :--- | :--- | :--- | :--- |
-| **Apply Migrations + Run Seeds** | `npm run migration:dev` | `npm run migration:prod` | `.env.development` / `.env.production` |
-| **Apply / Create Migrations Only** | `npm run prisma:migrate:dev` | `npm run prisma:migrate:prod` | `.env.development` / `.env.production` |
-| **Check Migration Status** | `npm run prisma:status:dev` | `npm run prisma:status:prod` | `.env.development` / `.env.production` |
-| **Run Seed Data Only** | `npm run prisma:seed:dev` | `npm run prisma:seed:prod` | `.env.development` / `.env.production` |
-| **Regenerate Prisma Client** | `npm run prisma:generate` | `npm run prisma:generate` | `schema.prisma` |
-
-### How to Create a New Migration (Step-by-Step):
-
-1. Edit your models in `apps/api/prisma/schema.prisma`.
-2. Run the development migration command:
-   ```bash
-   npm run prisma:migrate:dev
-   ```
-3. Prisma will prompt you for a migration name (e.g. `add_user_bio`), generate the SQL migration file under `apps/api/prisma/migrations/`, apply it to your development database, and regenerate the Prisma Client.
-4. When ready to deploy to production:
-   ```bash
-   npm run prisma:migrate:prod
-   ```
-   *(This uses `prisma migrate deploy`, safely applying all pending migrations to the production database without prompts or database resets).*
+| Action | Root Command | Inside `apps/web` | Env Loaded | Output / Target |
+| :--- | :--- | :--- | :--- | :--- |
+| **Dev Server (Local API)** | `npm run dev:web` | `npm run dev` | `.env.development` | `http://localhost:3000` (API: `localhost:4000`) |
+| **Dev Server (Prod API)** | `npm run dev:web:prod` | `npm run dev:prod` | `.env.production` | `http://localhost:3000` (API: Live Render Backend) |
+| **Static Export Build (Dev API)** | `npm run build:web:dev` | `npm run build:dev` | `.env.development` | Generates `apps/web/out/` (Local API) |
+| **Static Export Build (Prod API - Netlify)** | `npm run build:web:prod` | `npm run build:prod` | `.env.production` | Generates `apps/web/out/` (Live API) |
+| **Start Dev Build** | `npm run start:web:dev` | `npm run start:dev` | `.env.development` | Serves `.next` dev build locally |
+| **Start Production Build** | `npm run start:web:prod` | `npm run start:prod` | `.env.production` | Serves `.next` prod build locally |
+| **Lint Code** | `npm run lint --workspace=apps/web` | `npm run lint` | N/A | ESLint & Type validation |
 
 ---
 
-## 🚀 Getting Started & Local Development
+### 2. ⚙️ Backend (NestJS) Commands
 
-### 1. Prerequisites
-- **Node.js**: v18.0.0 or higher
-- **PostgreSQL**: Local PostgreSQL instance or remote connection (e.g. Render / Supabase / Neon)
+| Action | Root Command | Inside `apps/api` | Env Loaded | Details |
+| :--- | :--- | :--- | :--- | :--- |
+| **Dev Server (Watch/Hot-reload)** | `npm run dev:api` | `npm run start:dev` | `.env.development` | Port 4000, hot reload active |
+| **Compile API for Production** | `npm run build --workspace=apps/api` | `npm run build` | N/A | Compiles TS to `dist/src/main.js` |
+| **Start Production Server** | `npm run prod:api` | `npm run start:prod` | `.env.production` | Runs `node dist/src/main` |
+| **Start Debug Mode** | `npm run start:debug --workspace=apps/api` | `npm run start:debug` | `.env.development` | Nest debugger on port 9229 |
 
-### 2. Installation
-Install all dependencies for all workspaces from the root folder:
+---
+
+### 3. 🗄️ Database & Prisma Commands (Dev vs Prod)
+
+| Action | Root Command | Inside `apps/api` | Env Loaded | Target DB |
+| :--- | :--- | :--- | :--- | :--- |
+| **Dev: Migrate + Seed (All-in-One)** | `npm run migration:dev` | `npm run migration:dev` | `.env.development` | Dev Database |
+| **Prod: Migrate + Seed (All-in-One)** | `npm run migration:prod` | `npm run migration:prod` | `.env.production` | Production Database |
+| **Dev: Apply/Create Migrations** | `npm run prisma:migrate:dev` | `npm run prisma:migrate:dev` | `.env.development` | Creates new SQL migrations |
+| **Prod: Apply Pending Migrations** | `npm run prisma:migrate:prod` | `npm run prisma:migrate:prod` | `.env.production` | Non-interactive safe deploy |
+| **Dev: Check Migration Status** | `npm run prisma:status:dev` | `npm run prisma:status:dev` | `.env.development` | Pending / applied migrations |
+| **Prod: Check Migration Status** | `npm run prisma:status:prod` | `npm run prisma:status:prod` | `.env.production` | Production DB sync status |
+| **Dev: Seed Data Only** | `npm run prisma:seed:dev` | `npm run prisma:seed:dev` | `.env.development` | Seeds roles, admin, permissions |
+| **Prod: Seed Data Only** | `npm run prisma:seed:prod` | `npm run prisma:seed:prod` | `.env.production` | Seeds production DB |
+| **Regenerate Prisma Client** | `npm run prisma:generate` | `npm run prisma:generate` | `schema.prisma` | Generates engine for Windows/Linux |
+
+---
+
+## 🏁 Complete Step-by-Step Project Lifecycle (Start Se End Tak)
+
+Follow these exact steps from cloning the project to running in development and deploying to production.
+
+### Step 1: Install Dependencies
+Run from the root directory to install packages for root, backend, and frontend:
 ```bash
 npm install
 ```
 
-### 3. Environment Variables Setup
-Ensure your environment files are configured:
+---
 
-**Backend (`apps/api/.env.development`):**
+### Step 2: Environment Variables Setup
+
+Ensure your environment configuration files are created:
+
+#### 1. Backend Development (`apps/api/.env.development`):
 ```env
 NODE_ENV=development
 PORT=4000
-DATABASE_URL="postgresql://<user>:<password>@<host>:<port>/<db_name>?schema=public"
-JWT_SECRET="your_secure_jwt_secret_key"
+DATABASE_URL="postgresql://postgres:your_password@localhost:5432/test_bd?schema=public"
+JWT_SECRET="super_secret_jwt_key_development_min_32_chars"
 JWT_ACCESS_EXPIRES_IN=1d
 JWT_REFRESH_EXPIRES_IN=7d
 CLIENT_URL="http://localhost:3000"
 ```
 
-**Frontend (`apps/web/.env.development`):**
+#### 2. Backend Production (`apps/api/.env.production`):
 ```env
-NEXT_PUBLIC_API_URL="http://localhost:4000/api"
+NODE_ENV=production
+PORT=4000
+DATABASE_URL="postgresql://user:password@your-production-db-host.com/database_name?schema=public"
+JWT_SECRET="super_secret_jwt_key_production_min_32_chars"
+JWT_ACCESS_EXPIRES_IN=1d
+JWT_REFRESH_EXPIRES_IN=7d
+CLIENT_URL="https://your-frontend-domain.com"
 ```
 
-### 4. Run Migrations & Seed Initial Data
+#### 3. Frontend Development (`apps/web/.env.development`):
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
+```
+
+#### 4. Frontend Production (`apps/web/.env.production`):
+```env
+NEXT_PUBLIC_API_URL=https://your-production-backend.com/api
+```
+
+---
+
+### Step 3: Run Database Migrations & Seeds
+
+#### For Local Development:
 ```bash
+# 1. Regenerate Prisma Client
+npm run prisma:generate
+
+# 2. Run migrations and seed default data (admin user, modules, roles, permissions)
 npm run migration:dev
 ```
 
-### 5. Start Development Servers
+#### For Production Database:
+```bash
+# Safely deploys migrations to production DB and seeds initial data
+npm run migration:prod
+```
 
-Open two terminals (or run via npm workspace scripts):
+#### How to Add New Schema Changes / New Tables:
+1. Modify `apps/api/prisma/schema.prisma`.
+2. Generate migration locally:
+   ```bash
+   npm run prisma:migrate:dev
+   ```
+   (Prisma will prompt you for a migration name and create the SQL migration file).
+3. Deploy changes to production database when ready:
+   ```bash
+   npm run prisma:migrate:prod
+   ```
 
-* **Start Backend API Server (Port 4000):**
+---
+
+### Step 4: Run Development Servers (Local Full-Stack)
+
+Open two terminals:
+
+* **Terminal 1: Backend API (Port 4000)**
   ```bash
   npm run dev:api
   ```
-* **Start Frontend Web App (Port 3000):**
+  API will run at: [http://localhost:4000/api](http://localhost:4000/api)
+
+* **Terminal 2: Frontend Web (Port 3000)**
   ```bash
   npm run dev:web
   ```
+  Web app will run at: [http://localhost:3000](http://localhost:3000)
 
-Visit the application at [http://localhost:3000](http://localhost:3000).
+*(Optional: If you want to develop frontend locally against the Live Production Backend, run `npm run dev:web:prod`).*
+
+---
+
+### Step 5: Build Applications
+
+#### 1. Build Backend API:
+```bash
+npm run build --workspace=apps/api
+```
+Compiles TypeScript into `apps/api/dist/src/main.js`.
+
+#### 2. Build Frontend for Development (connects to local API):
+```bash
+npm run build:web:dev
+```
+
+#### 3. Build Frontend for Production (connects to live production API):
+```bash
+npm run build:web:prod
+```
+
+---
+
+### Step 6: Run Production Builds Locally
+
+#### 1. Run Production Backend API:
+```bash
+npm run prod:api
+```
+
+#### 2. Run Production Frontend:
+```bash
+# Runs production build connected to live production backend
+npm run start:web:prod
+
+# OR runs build connected to local backend
+npm run start:web:dev
+```
+
+---
+
+### Step 7: Docker & Cloud Deployment (e.g. Render / AWS / VPS)
+
+#### Backend Deployment:
+- **Root Directory:** Leave **BLANK / EMPTY** (Monorepo context is required).
+- **Dockerfile Path:** `apps/api/Dockerfile`
+- **Environment Variables on Render / Server:**
+  - `NODE_ENV` = `production`
+  - `DATABASE_URL` = Your production PostgreSQL connection string
+  - `JWT_SECRET` = Your strong production JWT secret
+  - `CLIENT_URL` = Your live frontend URL (or `*`)
+- The Dockerfile installs OpenSSL 3 compatibility (`apk add --no-cache openssl libc6-compat`), generates Prisma client with `linux-musl-openssl-3.0.x`, and starts the container via `node apps/api/dist/src/main.js`.
+
+#### Frontend Deployment:
+- **Root Directory:** Leave **BLANK / EMPTY**.
+- **Dockerfile Path:** `apps/web/Dockerfile`
+- Uses `npm run build:prod --workspace=apps/web` to bake the production API URL into the Next.js bundle.
+
+---
+
+### Step 8: Netlify Static Export Deployment (Netlify Drop / out.zip)
+
+If deploying the frontend as a pure static site to **Netlify Drop** without needing a Node.js server:
+
+1. **Build Production Static Export**:
+   Run from the root directory:
+   ```bash
+   npm run build:web:prod
+   ```
+   *(Or inside `apps/web`: `npm run build:prod`)*  
+   This compiles Next.js with `output: 'export'`, connecting to the live production API (`.env.production`), and outputs static HTML/CSS/JS into `apps/web/out/`.
+
+2. **Create the Zip File**:
+   ```powershell
+   Compress-Archive -Path "apps\web\out\*" -DestinationPath "apps\web\out.zip" -Force
+   ```
+
+3. **Deploy to Netlify**:
+   - Visit [app.netlify.com/drop](https://app.netlify.com/drop).
+   - Drag & drop the generated **`apps/web/out.zip`** (or the `out` folder).
+   - The included `_redirects` file (`/* /index.html 200`) ensures client-side SPA routing and page refreshes on `/dashboard`, `/login`, `/users`, etc. work seamlessly without 404 errors.
 
 ---
 
@@ -185,44 +325,17 @@ Visit the application at [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 🏗️ Building & Running (Dev vs Prod Environments)
+## 🔍 Code Quality & Verification Commands
 
-The project supports dedicated builds and runtime setups for both **Development** and **Production** environments.
+```bash
+# Type Check Frontend
+npx tsc --noEmit --workspace=apps/web
 
-### 🌐 Frontend (Next.js) Commands Overview
+# Lint Frontend
+npm run lint --workspace=apps/web
 
-Environment files:
-- **Development:** `apps/web/.env.development` (`NEXT_PUBLIC_API_URL=http://localhost:4000/api`)
-- **Production:** `apps/web/.env.production` (`NEXT_PUBLIC_API_URL=https://base-project-backend-td78.onrender.com/api`)
-
-| Operation | Root Command | Inside `apps/web` Command | Loaded Env File | Target API Backend |
-| :--- | :--- | :--- | :--- | :--- |
-| **Dev Mode (Local API)** | `npm run dev:web` | `npm run dev` | `apps/web/.env.development` | `http://localhost:4000/api` |
-| **Dev Mode (Prod API)** | `npm run dev:web:prod` | `npm run dev:prod` | `apps/web/.env.production` | Render Backend |
-| **Build for Development** | `npm run build:web:dev` | `npm run build:dev` | `apps/web/.env.development` | `http://localhost:4000/api` |
-| **Build for Production** | `npm run build:web:prod` | `npm run build:prod` | `apps/web/.env.production` | Render Backend |
-| **Start Dev Production Build** | `npm run start:web:dev` | `npm run start:dev` | `apps/web/.env.development` | `http://localhost:4000/api` |
-| **Start Production Server** | `npm run start:web:prod` | `npm run start:prod` | `apps/web/.env.production` | Render Backend |
-
----
-
-### ⚙️ Backend (NestJS) Commands Overview
-
-| Operation | Root Command | Inside `apps/api` Command | Loaded Env File |
-| :--- | :--- | :--- | :--- |
-| **Dev Server (Hot Reload)** | `npm run dev:api` | `npm run start:dev` | `apps/api/.env.development` |
-| **Compile API** | `npm run build --workspace=apps/api` | `npm run build` | N/A (Compiles to `dist/`) |
-| **Production Server** | `npm run prod:api` | `npm run start:prod` | `apps/api/.env.production` |
-
----
-
-### 🔍 Verification & Type Checking
-* **Frontend Type Check:**
-  ```bash
-  npx tsc --noEmit --workspace=apps/web
-  ```
-* **Frontend Linting:**
-  ```bash
-  npm run lint --workspace=apps/web
-  ```
+# Check Database Migration Status
+npm run prisma:status:dev
+npm run prisma:status:prod
+```
 

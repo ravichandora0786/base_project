@@ -7,7 +7,7 @@ import { permissionReducer } from '../app/(dashboard)/permissions/store/slice';
 import { moduleReducer } from '../app/(dashboard)/modules/store/slice';
 import { profileReducer } from '../app/(dashboard)/profile/store/slice';
 
-const rootReducer = combineReducers({
+const appReducer = combineReducers({
   auth: authReducer,
   commonReducer,
   userReducer,
@@ -17,5 +17,12 @@ const rootReducer = combineReducers({
   profileReducer,
 });
 
-export type RootState = ReturnType<typeof rootReducer>;
+const rootReducer = (state: any, action: any) => {
+  if (action.type === 'auth/logoutSuccess') {
+    state = undefined;
+  }
+  return appReducer(state, action);
+};
+
+export type RootState = ReturnType<typeof appReducer>;
 export default rootReducer;

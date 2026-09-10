@@ -11,7 +11,7 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const pathname = usePathname();
   const dispatch = useAppDispatch();
-  const { user, isAuthenticated, isLoading } = useAppSelector((state) => state.auth);
+  const { user, isAuthenticated, isLoading } = useAppSelector((state) => state?.auth || {}) as any;
   
   // Guard client-side state
   const [mounted, setMounted] = useState(false);
@@ -19,9 +19,9 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     setMounted(true);
-    // On hard reload, if logged_in cookie exists but user not loaded in Redux, trigger profile fetch
-    const loggedIn = Cookies.get('logged_in') === 'true';
-    if (loggedIn && !user && !isLoading) {
+    // On hard reload, if session exists but user not loaded in Redux, trigger profile fetch
+    const hasSession = Cookies.get('logged_in') === 'true' || !!Cookies.get('access_token');
+    if (hasSession && !user && !isLoading) {
       dispatch(checkAuthStart());
     }
   }, []);
@@ -33,17 +33,28 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
   }, [pathname, mounted, isAuthenticated, user, isLoading]);
 
   function authCheck(path: string) {
-    const loggedIn = Cookies.get('logged_in') === 'true';
+    if (path === '/_not-found' || path === '/not-found') {
+      setAuthorized(true);
+      return;
+    }
+
+    const hasSession = Cookies.get('logged_in') === 'true' || !!Cookies.get('access_token');
+    const loggedIn = isAuthenticated || hasSession;
     const isPublic = PUBLIC_ROUTES.includes(path);
 
-    // 1. No logged_in cookie and trying to access private page
+    // If session exists on hard refresh, wait for checkAuth to complete before deciding to redirect
+    if (hasSession && !isAuthenticated && isLoading && !isPublic) {
+      return;
+    }
+
+    // 1. No active session and trying to access private page
     if (!loggedIn && !isPublic) {
       setAuthorized(false);
       router.push('/login');
       return;
     }
 
-    // 2. Logged_in cookie exists and trying to access public page (redirect to dashboard)
+    // 2. Logged in and trying to access public page (redirect to dashboard)
     if (loggedIn && isPublic) {
       setAuthorized(false);
       router.push('/dashboard');
@@ -52,7 +63,7 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
 
     // 3. Role-based permission checks on private pages
     if (loggedIn && !isPublic) {
-      if (path === '/dashboard' || path.startsWith('/profile') || path === '/') {
+      if (path === '/dashboard' || path.startsWith('/profile')) {
         setAuthorized(true);
         return;
       }

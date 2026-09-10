@@ -149,7 +149,7 @@ interface ProfileData {
 // --- Main Page ----------------------------------------------------------------
 export default function ProfilePage() {
   const dispatch = useAppDispatch();
-  const { user: authUser } = useAppSelector((state) => state.auth);
+  const { user: authUser } = useAppSelector((state) => state?.auth || {}) as any;
 
   // Redux Selectors
   const activeTab = useAppSelector(selectActiveTab) as ActiveTabType;
