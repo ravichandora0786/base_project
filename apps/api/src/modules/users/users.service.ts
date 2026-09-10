@@ -141,25 +141,118 @@ export class UsersService {
     });
   }
 
-  async findAll() {
-    return this.prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        gender: true,
-        profile_image: true,
-        is_active: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-          },
+  async findAll(query?: {
+    search?: string;
+    isActive?: string | boolean;
+    page?: number;
+    pageSize?: number;
+    currentUserId?: string;
+    currentUserEmail?: string;
+  }) {
+    const where: any = {};
+    const conditions: any[] = [];
+
+    // Exclude currently logged-in user from the list
+    if (query?.currentUserId) {
+      conditions.push({ id: { not: query.currentUserId } });
+    }
+    if (query?.currentUserEmail) {
+      conditions.push({ email: { not: query.currentUserEmail } });
+    }
+
+    // Search filter (name, email, phone)
+    if (query?.search && typeof query.search === 'string' && query.search.trim() !== '') {
+      const search = query.search.trim();
+      conditions.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    // Status filter (is_active)
+    if (
+      query?.isActive !== undefined &&
+      query?.isActive !== null &&
+      query?.isActive !== '' &&
+      query?.isActive !== 'all'
+    ) {
+      const isActiveStr = String(query.isActive).toLowerCase();
+      if (isActiveStr === 'true' || isActiveStr === '1') {
+        conditions.push({ is_active: true });
+      } else if (isActiveStr === 'false' || isActiveStr === '0') {
+        conditions.push({ is_active: false });
+      }
+    }
+
+    if (conditions.length > 0) {
+      where.AND = conditions;
+    }
+
+    const select = {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      gender: true,
+      profile_image: true,
+      is_active: true,
+      role: {
+        select: {
+          id: true,
+          name: true,
         },
-        created_at: true,
       },
-    });
+      created_at: true,
+    };
+
+    const hasPagination = query?.page !== undefined || query?.pageSize !== undefined;
+    const page = Math.max(1, Number(query?.page) || 1);
+    const pageSize = Math.max(1, Number(query?.pageSize) || 10);
+
+    if (hasPagination) {
+      const skip = (page - 1) * pageSize;
+      const take = pageSize;
+
+      const [data, total] = await Promise.all([
+        this.prisma.user.findMany({
+          where,
+          select,
+          skip,
+          take,
+          orderBy: { created_at: 'desc' },
+        }),
+        this.prisma.user.count({ where }),
+      ]);
+
+      return {
+        data,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      };
+    }
+
+    // Default without explicit pagination: return all matching records with total
+    const [data, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select,
+        orderBy: { created_at: 'desc' },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      page: 1,
+      pageSize: total,
+      totalPages: 1,
+    };
   }
 
   async update(id: string, dto: UpdateUserDto, isAdmin: boolean = false) {

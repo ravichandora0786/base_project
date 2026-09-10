@@ -254,23 +254,39 @@ export default function ModulesCRUDPage() {
     return modulesArray.slice(start, end);
   }, [modulesArray, pagination]);
 
+  const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleSearchChange = (val: string) => {
+    dispatch(setModuleSearchData({ search: val, status: statusFilter }));
+    dispatch(setModulePagination({ ...pagination, pageIndex: 0 }));
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      fetchWithFilters(val, statusFilter);
+    }, 300);
+  };
+
+  const handleStatusChange = (val: any) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    dispatch(setModuleSearchData({ search: searchQuery, status: val }));
+    dispatch(setModulePagination({ ...pagination, pageIndex: 0 }));
+    fetchWithFilters(searchQuery, val);
+  };
+
+  const handleRefresh = () => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    dispatch(setModuleSearchData({ search: '', status: 'all' }));
+    dispatch(setModulePagination({ pageIndex: 0, pageSize: 10 }));
+    dispatch(getAllModules({}));
+  };
+
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
       <TableToolbar
         searchQuery={searchQuery}
-        onSearchChange={(val) => {
-          dispatch(setModuleSearchData({ search: val, status: statusFilter }));
-          fetchWithFilters(val, statusFilter);
-        }}
+        onSearchChange={handleSearchChange}
         statusFilter={statusFilter}
-        onStatusChange={(val) => {
-          dispatch(setModuleSearchData({ search: searchQuery, status: val }));
-          fetchWithFilters(searchQuery, val);
-        }}
-        onRefresh={() => {
-          dispatch(setModuleSearchData({ search: '', status: 'all' }));
-          dispatch(getAllModules({}));
-        }}
+        onStatusChange={handleStatusChange}
+        onRefresh={handleRefresh}
         onCreate={handleOpenCreate}
         createTooltip="Create Module"
       />

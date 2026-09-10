@@ -14,6 +14,27 @@ import { useConfirm } from '@/components/ui/confirmationModal';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
 import { User, Role } from '@/types/models';
+import Cookies from 'js-cookie';
+
+function parseJwt(token: string): any {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    if (typeof window !== 'undefined' && window.atob) {
+      const jsonPayload = decodeURIComponent(
+        window.atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      return JSON.parse(jsonPayload);
+    }
+    return JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
 
 // Redux Imports
 import {
@@ -36,19 +57,136 @@ export default function UsersCRUDPage() {
   const router = useRouter();
   const { user: currentUser } = useAppSelector((state) => state?.auth || {}) as any;
 
+  // Extract logged-in user id & email from Redux or directly from access_token JWT
+  const loggedInInfo = React.useMemo(() => {
+    let id = currentUser?.id || null;
+    let email = currentUser?.email || null;
+    let role = currentUser?.role?.name || null;
+
+    if (!id || !email) {
+      try {
+        const token = Cookies.get('access_token');
+        if (token) {
+          const decoded = parseJwt(token);
+          if (!id) id = decoded?.sub || decoded?.id || null;
+          if (!email) email = decoded?.email || null;
+          if (!role) role = decoded?.role || null;
+        }
+      } catch (err) {
+        console.error('Error parsing access token:', err);
+      }
+    }
+
+    return { id, email, role };
+  }, [currentUser]);
+
   // Redux Selectors
   const usersData = useAppSelector(selectAllUserDataList);
   const rolesData = useAppSelector(selectAllRoleDataList);
   const pagination = useAppSelector(selectUserPagination);
   const { search: searchQuery, status: statusFilter } = useAppSelector(selectUserSearchData);
 
-  const usersRaw: User[] = Array.isArray(usersData) ? usersData : [];
+  const usersRaw: User[] = React.useMemo(() => {
+    if (Array.isArray(usersData)) return usersData;
+    if (Array.isArray(usersData?.data)) return usersData.data;
+    if (Array.isArray(usersData?.items)) return usersData.items;
+    return [];
+  }, [usersData]);
+
   const roles: Role[] = Array.isArray(rolesData) ? rolesData : [];
 
+  // Exclude logged-in user by ID and email (from token / currentUser)
+  const filteredUsers = React.useMemo(() => {
+    return usersRaw.filter((u) => {
+      if (loggedInInfo.id && u.id === loggedInInfo.id) return false;
+      if (loggedInInfo.email && u.email?.toLowerCase() === loggedInInfo.email.toLowerCase()) return false;
+      return true;
+    });
+  }, [usersRaw, loggedInInfo]);
+
+  const isServerPaginated = typeof usersData?.total === 'number' || typeof usersData?.pagination?.totalItems === 'number';
+
+  const totalRows: number = React.useMemo(() => {
+    const hasLoggedInUserInRaw = Boolean(
+      (loggedInInfo.id && usersRaw.some((u) => u.id === loggedInInfo.id)) ||
+      (loggedInInfo.email && usersRaw.some((u) => u.email?.toLowerCase() === loggedInInfo.email.toLowerCase()))
+    );
+    const serverTotal = typeof usersData?.total === 'number'
+      ? usersData.total
+      : (typeof usersData?.pagination?.totalItems === 'number'
+          ? usersData.pagination.totalItems
+          : filteredUsers.length);
+    return hasLoggedInUserInRaw ? Math.max(0, serverTotal - 1) : serverTotal;
+  }, [usersData, usersRaw, loggedInInfo, filteredUsers.length]);
+
+  // Fetch with server-side query params (page, pageSize, search, is_active)
+  const fetchUsers = React.useCallback(
+    (page: number, pageSize: number, search?: string, status?: any) => {
+      const params: any = {
+        page,
+        pageSize,
+      };
+      const activeSearch = search !== undefined ? search : searchQuery;
+      const activeStatus = status !== undefined ? status : statusFilter;
+
+      if (activeSearch && activeSearch.trim()) {
+        params.search = activeSearch.trim();
+      }
+      if (activeStatus !== undefined && activeStatus !== null && activeStatus !== 'all') {
+        params.is_active = activeStatus;
+      }
+
+      dispatch(getAllUsers({ data: params }));
+    },
+    [dispatch, searchQuery, statusFilter]
+  );
+
   useEffect(() => {
-    dispatch(getAllUsers({}));
+    fetchUsers(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
     dispatch(getAllRoles({}));
   }, [dispatch]);
+
+  const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleSearchChange = (val: string) => {
+    dispatch(setUserSearchData({ search: val, status: statusFilter }));
+    const newPagination = { ...pagination, pageIndex: 0 };
+    dispatch(setUserPagination(newPagination));
+
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+    searchTimerRef.current = setTimeout(() => {
+      fetchUsers(1, pagination?.pageSize || 10, val, statusFilter);
+    }, 300);
+  };
+
+  const handleStatusChange = (val: any) => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+    dispatch(setUserSearchData({ search: searchQuery, status: val }));
+    const newPagination = { ...pagination, pageIndex: 0 };
+    dispatch(setUserPagination(newPagination));
+    fetchUsers(1, pagination?.pageSize || 10, searchQuery, val);
+  };
+
+  const handlePaginationChange = (updater: any) => {
+    const nextPagination = typeof updater === 'function' ? updater(pagination) : updater;
+    dispatch(setUserPagination(nextPagination));
+    fetchUsers(nextPagination.pageIndex + 1, nextPagination.pageSize, searchQuery, statusFilter);
+  };
+
+  const handleRefresh = () => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+    const resetPag = { pageIndex: 0, pageSize: 10 };
+    dispatch(setUserSearchData({ search: '', status: 'all' }));
+    dispatch(setUserPagination(resetPag));
+    fetchUsers(1, 10, '', 'all');
+    dispatch(getAllRoles({}));
+  };
 
   const handleOpenCreate = () => {
     router.push('/users/add');
@@ -77,7 +215,7 @@ export default function UsersCRUDPage() {
         id,
         onSuccess: () => {
           toast.success('User deleted successfully');
-          dispatch(getAllUsers({}));
+          fetchUsers(pagination.pageIndex + 1, pagination.pageSize || 10, searchQuery, statusFilter);
           dispatch(checkAuthStart());
         },
         onFailure: (err: any) => {
@@ -86,19 +224,6 @@ export default function UsersCRUDPage() {
       })
     );
   };
-
-  // Fetch with server-side filter params
-  const fetchWithFilters = (search: string, status: any) => {
-    const params: any = {};
-    if (search) params.search = search;
-    if (status !== 'all') params.is_active = status;
-    dispatch(getAllUsers({ data: params }));
-  };
-
-  // Exclude logged-in user (client-side only), server already filtered search/status
-  const filteredUsers = React.useMemo(() => {
-    return usersRaw.filter((u) => (currentUser ? u.id !== currentUser.id : true));
-  }, [usersRaw, currentUser]);
 
   // Columns definition for DataTableComponent
   const columns = React.useMemo<ColumnDef<User>[]>(
@@ -167,7 +292,9 @@ export default function UsersCRUDPage() {
         accessorKey: 'is_active',
         cell: ({ row }) => {
           const isActive = row.original.is_active;
-          const isAdmin = currentUser?.role?.name?.toLowerCase() === 'admin';
+          const isAdmin =
+            currentUser?.role?.name?.toLowerCase() === 'admin' ||
+            loggedInInfo.role?.toLowerCase() === 'admin';
           return (
             <CustomSwitch
               name={`status-${row.original.id}`}
@@ -179,7 +306,7 @@ export default function UsersCRUDPage() {
                     is_active: newVal,
                   });
                   toast.success('User status updated successfully');
-                  dispatch(getAllUsers({}));
+                  fetchUsers(pagination.pageIndex + 1, pagination.pageSize || 10, searchQuery, statusFilter);
                   dispatch(checkAuthStart());
                 } catch (err: any) {
                   toast.error(err.response?.data?.message || 'Failed to update status');
@@ -205,34 +332,25 @@ export default function UsersCRUDPage() {
         ),
       },
     ],
-    [filteredUsers, currentUser, dispatch]
+    [filteredUsers, currentUser, dispatch, pagination, searchQuery, statusFilter, fetchUsers]
   );
 
-  // Client-side pagination slicing
-  const slicedUsers = React.useMemo(() => {
+  // Paginated data for display
+  const displayUsers = React.useMemo(() => {
+    if (isServerPaginated) return filteredUsers;
     const start = pagination.pageIndex * pagination.pageSize;
     const end = start + pagination.pageSize;
     return filteredUsers.slice(start, end);
-  }, [filteredUsers, pagination]);
+  }, [filteredUsers, pagination, isServerPaginated]);
 
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
       <TableToolbar
         searchQuery={searchQuery}
-        onSearchChange={(val) => {
-          dispatch(setUserSearchData({ search: val, status: statusFilter }));
-          fetchWithFilters(val, statusFilter);
-        }}
+        onSearchChange={handleSearchChange}
         statusFilter={statusFilter}
-        onStatusChange={(val) => {
-          dispatch(setUserSearchData({ search: searchQuery, status: val }));
-          fetchWithFilters(searchQuery, val);
-        }}
-        onRefresh={() => {
-          dispatch(setUserSearchData({ search: '', status: 'all' }));
-          dispatch(getAllUsers({}));
-          dispatch(getAllRoles({}));
-        }}
+        onStatusChange={handleStatusChange}
+        onRefresh={handleRefresh}
         onCreate={handleOpenCreate}
         createTooltip="Add New User"
       />
@@ -240,10 +358,10 @@ export default function UsersCRUDPage() {
       <div className="flex-1 flex flex-col min-h-0">
         <DataTableComponent
           columns={columns}
-          data={slicedUsers}
+          data={displayUsers}
           pagination={pagination}
-          setPagination={(newPag: any) => dispatch(setUserPagination(newPag))}
-          totalRows={filteredUsers.length}
+          setPagination={handlePaginationChange}
+          totalRows={totalRows}
         />
       </div>
     </div>

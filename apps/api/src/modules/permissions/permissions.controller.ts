@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { PermissionsService } from './permissions.service';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
@@ -19,8 +19,19 @@ export class PermissionsController {
   }
 
   @Get()
-  findAll() {
-    return this.permissionsService.findAll();
+  findAll(
+    @Query('search') search?: string,
+    @Query('is_active') isActive?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.permissionsService.findAll({
+      search,
+      isActive,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : (limit ? Number(limit) : undefined),
+    });
   }
 
   @Get(':id')

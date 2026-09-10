@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { AppModulesService } from './app-modules.service';
 import { CreateAppModuleDto } from './dto/create-app-module.dto';
 import { UpdateAppModuleDto } from './dto/update-app-module.dto';
@@ -19,8 +19,19 @@ export class AppModulesController {
   }
 
   @Get()
-  findAll() {
-    return this.appModulesService.findAll();
+  findAll(
+    @Query('search') search?: string,
+    @Query('is_active') isActive?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.appModulesService.findAll({
+      search,
+      isActive,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : (limit ? Number(limit) : undefined),
+    });
   }
 
   @Get(':id')

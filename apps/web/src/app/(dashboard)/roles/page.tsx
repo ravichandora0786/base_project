@@ -254,23 +254,39 @@ export default function RolesCRUDPage() {
     ];
   }, [editingRole]);
 
+  const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleSearchChange = (val: string) => {
+    dispatch(setRoleSearchData({ search: val, status: statusFilter }));
+    dispatch(setRolePagination({ ...pagination, pageIndex: 0 }));
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      fetchWithFilters(val, statusFilter);
+    }, 300);
+  };
+
+  const handleStatusChange = (val: any) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    dispatch(setRoleSearchData({ search: searchQuery, status: val }));
+    dispatch(setRolePagination({ ...pagination, pageIndex: 0 }));
+    fetchWithFilters(searchQuery, val);
+  };
+
+  const handleRefresh = () => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    dispatch(setRoleSearchData({ search: '', status: 'all' }));
+    dispatch(setRolePagination({ pageIndex: 0, pageSize: 10 }));
+    dispatch(getAllRoles({}));
+  };
+
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
       <TableToolbar
         searchQuery={searchQuery}
-        onSearchChange={(val) => {
-          dispatch(setRoleSearchData({ search: val, status: statusFilter }));
-          fetchWithFilters(val, statusFilter);
-        }}
+        onSearchChange={handleSearchChange}
         statusFilter={statusFilter}
-        onStatusChange={(val) => {
-          dispatch(setRoleSearchData({ search: searchQuery, status: val }));
-          fetchWithFilters(searchQuery, val);
-        }}
-        onRefresh={() => {
-          dispatch(setRoleSearchData({ search: '', status: 'all' }));
-          dispatch(getAllRoles({}));
-        }}
+        onStatusChange={handleStatusChange}
+        onRefresh={handleRefresh}
         onCreate={handleOpenCreate}
         createTooltip="Create Role"
       />

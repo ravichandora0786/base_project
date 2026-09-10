@@ -236,23 +236,39 @@ export default function PermissionsCRUDPage() {
     return permissionsArray.slice(start, end);
   }, [permissionsArray, pagination]);
 
+  const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleSearchChange = (val: string) => {
+    dispatch(setPermissionSearchData({ search: val, status: statusFilter }));
+    dispatch(setPermissionPagination({ ...pagination, pageIndex: 0 }));
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      fetchWithFilters(val, statusFilter);
+    }, 300);
+  };
+
+  const handleStatusChange = (val: any) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    dispatch(setPermissionSearchData({ search: searchQuery, status: val }));
+    dispatch(setPermissionPagination({ ...pagination, pageIndex: 0 }));
+    fetchWithFilters(searchQuery, val);
+  };
+
+  const handleRefresh = () => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    dispatch(setPermissionSearchData({ search: '', status: 'all' }));
+    dispatch(setPermissionPagination({ pageIndex: 0, pageSize: 10 }));
+    dispatch(getAllPermissions({}));
+  };
+
   return (
     <div className="space-y-4 flex-1 flex flex-col min-h-0">
       <TableToolbar
         searchQuery={searchQuery}
-        onSearchChange={(val) => {
-          dispatch(setPermissionSearchData({ search: val, status: statusFilter }));
-          fetchWithFilters(val, statusFilter);
-        }}
+        onSearchChange={handleSearchChange}
         statusFilter={statusFilter}
-        onStatusChange={(val) => {
-          dispatch(setPermissionSearchData({ search: searchQuery, status: val }));
-          fetchWithFilters(searchQuery, val);
-        }}
-        onRefresh={() => {
-          dispatch(setPermissionSearchData({ search: '', status: 'all' }));
-          dispatch(getAllPermissions({}));
-        }}
+        onStatusChange={handleStatusChange}
+        onRefresh={handleRefresh}
         onCreate={handleOpenCreate}
         createTooltip="Create Permission"
       />

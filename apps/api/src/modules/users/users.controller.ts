@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ForbiddenException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ForbiddenException, UseInterceptors, UploadedFile, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { RegisterDto } from '../auth/dto/register.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -28,8 +28,23 @@ export class UsersController {
   }
 
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(
+    @Query('search') search?: string,
+    @Query('is_active') isActive?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('limit') limit?: string,
+    @CurrentUser('id') currentUserId?: string,
+    @CurrentUser('email') currentUserEmail?: string,
+  ) {
+    return this.usersService.findAll({
+      search,
+      isActive,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : (limit ? Number(limit) : undefined),
+      currentUserId,
+      currentUserEmail,
+    });
   }
 
   @Get(':id')

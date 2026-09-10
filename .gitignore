@@ -7,6 +7,7 @@ jspm_packages/
 dist/
 build/
 out/
+*.zip
 
 # Logs
 npm-debug.log*

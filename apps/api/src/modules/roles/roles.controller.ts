@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
@@ -19,8 +19,19 @@ export class RolesController {
   }
 
   @Get()
-  findAll() {
-    return this.rolesService.findAll();
+  findAll(
+    @Query('search') search?: string,
+    @Query('is_active') isActive?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.rolesService.findAll({
+      search,
+      isActive,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : (limit ? Number(limit) : undefined),
+    });
   }
 
   @Get(':id')
