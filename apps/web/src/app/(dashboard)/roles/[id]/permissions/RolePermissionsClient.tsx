@@ -10,6 +10,7 @@ import { useAppDispatch } from '@/store';
 import { checkAuthStart } from '@/features/auth/store/auth.slice';
 import { FiSearch, FiRefreshCw, FiX } from 'react-icons/fi';
 import { Role, AppModule, Permission } from '@/types/models';
+import { getSocket } from '@/lib/socket';
 
 interface RolePermissionMapping {
   id: string;
@@ -93,6 +94,18 @@ export default function RolePermissionsClient() {
     if (roleId) {
       loadData();
     }
+
+    const socket = getSocket();
+    const handleRemoteUpdate = (data: { roleId?: string }) => {
+      if (data?.roleId && data.roleId === roleId) {
+        loadData();
+      }
+    };
+
+    socket.on('permissions_updated', handleRemoteUpdate);
+    return () => {
+      socket.off('permissions_updated', handleRemoteUpdate);
+    };
   }, [roleId]);
 
   const handleCheckboxChange = (moduleId: string, permissionId: string, checked: boolean) => {

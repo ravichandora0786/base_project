@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../database/prisma.service';
 import { CreateRolePermissionDto } from './dto/create-role-permission.dto';
 import { UpdateRolePermissionDto } from './dto/update-role-permission.dto';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class RolePermissionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventsGateway: EventsGateway,
+  ) {}
 
   async create(dto: CreateRolePermissionDto) {
     const existing = await this.prisma.rolePermission.findUnique({
@@ -14,7 +18,7 @@ export class RolePermissionsService {
     if (existing) {
       throw new ConflictException('Role-Permission mapping already exists with this name');
     }
-    return this.prisma.rolePermission.create({
+    const result = await this.prisma.rolePermission.create({
       data: {
         name: dto.name,
         role_id: dto.role_id,
@@ -22,6 +26,8 @@ export class RolePermissionsService {
         permission_ids: dto.permission_ids,
       },
     });
+    this.eventsGateway.emitPermissionsUpdated({ roleId: dto.role_id });
+    return result;
   }
 
   async findAll() {
@@ -55,7 +61,7 @@ export class RolePermissionsService {
         throw new ConflictException('Mapping name already taken');
       }
     }
-    return this.prisma.rolePermission.update({
+    const result = await this.prisma.rolePermission.update({
       where: { id },
       data: {
         name: dto.name,
@@ -64,13 +70,17 @@ export class RolePermissionsService {
         permission_ids: dto.permission_ids,
       },
     });
+    this.eventsGateway.emitPermissionsUpdated({ roleId: result.role_id });
+    return result;
   }
 
   async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.rolePermission.delete({
+    const existing = await this.findOne(id);
+    const result = await this.prisma.rolePermission.delete({
       where: { id },
     });
+    this.eventsGateway.emitPermissionsUpdated({ roleId: existing.role_id });
+    return result;
   }
 
   async bulkSave(roleId: string, rolePermissions: { moduleId: string; permissionIds: string[] }[]) {
@@ -137,6 +147,11 @@ export class RolePermissionsService {
         where: { id: om.id },
       });
     }
+
+    this.eventsGateway.emitPermissionsUpdated({
+      roleId,
+      roleName: role.name,
+    });
 
     return { success: true };
   }
