@@ -7,13 +7,16 @@ import { call, put, takeLatest } from "redux-saga/effects";
 import { toast } from "react-toastify";
 import { apiClient } from "@/lib/api/client";
 import { setGlobalLoading } from "@/store/common/slice";
+import { updateUser } from "@/features/auth/store/auth.slice";
 import {
   changePassword,
   getProfile,
   setProfile,
   updateProfileData,
   uploadProfileImage,
+  deleteProfileImage,
   setImgUploading,
+  setImgDeleting,
 } from "./slice";
 
 function* getProfileSaga(action: any): Generator<any, any, any> {
@@ -23,6 +26,9 @@ function* getProfileSaga(action: any): Generator<any, any, any> {
     const endpoint = id ? `/users/${id}` : '/users/me';
     const response = yield call(apiClient.get, endpoint);
     yield put(setProfile(response.data));
+    if (!id || id === response.data?.id) {
+      yield put(updateUser(response.data));
+    }
     if (onSuccess) yield onSuccess({ message: response?.statusText, data: response?.data });
   } catch (err: any) {
     const errorMessage = err.response?.data?.message || err.message || "Failed to fetch profile";
@@ -39,6 +45,7 @@ function* updateProfileDataSaga(action: any): Generator<any, any, any> {
     yield put(setGlobalLoading(true));
     const response = yield call(apiClient.patch, `/auth/profile`, data);
     yield put(setProfile(response.data));
+    yield put(updateUser(response.data));
     if (onSuccess) yield onSuccess({ message: response?.statusText, data: response?.data });
   } catch (err: any) {
     const errorMessage = err.response?.data?.message || err.message || "Failed to update profile";
@@ -74,6 +81,7 @@ function* uploadProfileImageSaga(action: any): Generator<any, any, any> {
       headers: { "Content-Type": "multipart/form-data" },
     });
     yield put(setProfile(response.data));
+    yield put(updateUser(response.data));
     if (onSuccess) yield onSuccess({ message: response?.statusText, data: response?.data });
   } catch (err: any) {
     const errorMessage = err.response?.data?.message || err.message || "Failed to upload image";
@@ -84,9 +92,28 @@ function* uploadProfileImageSaga(action: any): Generator<any, any, any> {
   }
 }
 
+function* deleteProfileImageSaga(action: any): Generator<any, any, any> {
+  const { onSuccess, onFailure } = action.payload || {};
+  try {
+    yield put(setImgDeleting(true));
+    const response = yield call(apiClient.delete, "/auth/profile-image");
+    yield put(setProfile(response.data));
+    yield put(updateUser(response.data));
+    toast.success("Profile photo removed successfully");
+    if (onSuccess) yield onSuccess({ message: response?.statusText, data: response?.data });
+  } catch (err: any) {
+    const errorMessage = err.response?.data?.message || err.message || "Failed to remove profile photo";
+    toast.error(errorMessage);
+    if (onFailure) yield onFailure({ message: errorMessage });
+  } finally {
+    yield put(setImgDeleting(false));
+  }
+}
+
 export function* profileSaga() {
   yield takeLatest(getProfile, getProfileSaga);
   yield takeLatest(updateProfileData, updateProfileDataSaga);
   yield takeLatest(changePassword, changePasswordSaga);
   yield takeLatest(uploadProfileImage, uploadProfileImageSaga);
+  yield takeLatest(deleteProfileImage, deleteProfileImageSaga);
 }

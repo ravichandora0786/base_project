@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { FiUser } from 'react-icons/fi';
 import DataTableComponent from '@/components/ui/dataTableComponent';
+import ImagePreviewModal from '@/components/ui/imagePreviewModal';
 import CustomSwitch from '@/components/ui/customSwitch';
 import TableToolbar from '@/components/common/TableToolbar';
 import TableRowActions from '@/components/common/TableRowActions';
@@ -85,6 +86,7 @@ export default function UsersCRUDPage() {
   const rolesData = useAppSelector(selectAllRoleDataList);
   const pagination = useAppSelector(selectUserPagination);
   const { search: searchQuery, status: statusFilter } = useAppSelector(selectUserSearchData);
+  const [previewUser, setPreviewUser] = React.useState<User | null>(null);
 
   const usersRaw: User[] = React.useMemo(() => {
     if (Array.isArray(usersData)) return usersData;
@@ -247,11 +249,17 @@ export default function UsersCRUDPage() {
                 <img
                   src={row.original.profile_image}
                   alt={row.original.name}
-                  className="w-9 h-9 rounded-xl object-cover border border-custom shadow-2xs"
+                  className="w-9 h-9 rounded-xl object-cover border border-custom shadow-2xs cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-custom-primary/40 transition"
                   onError={() => setImgError(true)}
+                  onClick={() => setPreviewUser(row.original)}
+                  title="Click to view photo"
                 />
               ) : (
-                <div className="w-9 h-9 rounded-xl bg-custom-primary/10 border border-custom flex items-center justify-center text-custom-primary font-bold shadow-2xs">
+                <div
+                  className="w-9 h-9 rounded-xl bg-custom-primary/10 border border-custom flex items-center justify-center text-custom-primary font-bold shadow-2xs cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-custom-primary/40 transition"
+                  onClick={() => setPreviewUser(row.original)}
+                  title="Click to view profile"
+                >
                   <FiUser className="w-4 h-4" />
                 </div>
               )}
@@ -372,6 +380,13 @@ export default function UsersCRUDPage() {
           totalRows={totalRows}
         />
       </div>
+
+      <ImagePreviewModal
+        isOpen={Boolean(previewUser)}
+        onClose={() => setPreviewUser(null)}
+        imageUrl={previewUser?.profile_image}
+        name={previewUser?.name}
+      />
     </div>
   );
 }

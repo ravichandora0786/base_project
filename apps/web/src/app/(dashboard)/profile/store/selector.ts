@@ -13,3 +13,4 @@ export const selectImgModalOpen = (state: any) => profileSelector(state).imgModa
 export const selectImgPreview = (state: any) => profileSelector(state).imgPreview;
 export const selectImgFile = (state: any) => profileSelector(state).imgFile;
 export const selectImgUploading = (state: any) => profileSelector(state).imgUploading;
+export const selectImgDeleting = (state: any) => profileSelector(state).imgDeleting;

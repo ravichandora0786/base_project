@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
@@ -8,8 +8,10 @@ import { useAppSelector, useAppDispatch } from '@/store';
 import { checkAuthStart } from '@/features/auth/store/auth.slice';
 import LoadingButton from '@/components/ui/loadingButton';
 import GenericModal from '@/components/ui/genericModal';
+import ImagePreviewModal from '@/components/ui/imagePreviewModal';
+import { useConfirm } from '@/components/ui/confirmationModal';
 import {
-  FiEdit2, FiSave, FiLock, FiCamera, FiX, FiCheckCircle, FiXCircle,
+  FiEdit2, FiSave, FiLock, FiCamera, FiX, FiCheckCircle, FiXCircle, FiTrash2,
 } from 'react-icons/fi';
 import {
   GENDER_OPTIONS,
@@ -30,6 +32,7 @@ import {
   selectImgPreview,
   selectImgFile,
   selectImgUploading,
+  selectImgDeleting,
 } from './store/selector';
 import {
   setActiveTab,
@@ -42,6 +45,7 @@ import {
   updateProfileData,
   changePassword,
   uploadProfileImage,
+  deleteProfileImage,
 } from './store/slice';
 
 // --- Schemas ------------------------------------------------------------------
@@ -161,6 +165,9 @@ export default function ProfilePage() {
   const imgPreview = useAppSelector(selectImgPreview);
   const imgFile = useAppSelector(selectImgFile);
   const imgUploading = useAppSelector(selectImgUploading);
+  const imgDeleting = useAppSelector(selectImgDeleting);
+  const confirm = useConfirm();
+  const [viewImageModalOpen, setViewImageModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -353,6 +360,30 @@ export default function ProfilePage() {
     );
   };
 
+  const handleDeleteImage = async () => {
+    if (!profile?.profile_image) return;
+    const isConfirmed = await confirm({
+      title: 'Remove Profile Photo?',
+      message: 'Are you sure you want to remove your profile photo? Your initials will be displayed instead.',
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      variant: 'danger',
+    });
+    if (isConfirmed) {
+      dispatch(
+        deleteProfileImage({
+          onSuccess: () => {
+            dispatch(setImgModalOpen(false));
+            dispatch(setImgPreview(null));
+            dispatch(setImgFile(null));
+            dispatch(getProfile({}));
+            dispatch(checkAuthStart());
+          },
+        })
+      );
+    }
+  };
+
   const navItems: { key: ActiveTabType; label: string; icon: React.ReactNode }[] = [
     { key: 'profile', label: 'My Profile', icon: <FiEdit2 className="w-4 h-4" /> },
     { key: 'password', label: 'Change Password', icon: <FiLock className="w-4 h-4" /> },
@@ -399,26 +430,34 @@ export default function ProfilePage() {
             <SectionCard>
               <div className="flex items-center justify-between p-6">
                 <div className="flex items-center gap-5">
-                  {/* Avatar with pencil overlay */}
-                  <div className="relative group">
-                    <div className="w-16 h-16 rounded-2xl bg-custom-primary/10 text-custom-primary flex items-center justify-center text-2xl font-extrabold border border-custom-primary/20 overflow-hidden">
+                  {/* Avatar with persistent pencil edit badge */}
+                  <div className="relative shrink-0">
+                    <div
+                      onClick={() => {
+                        setViewImageModalOpen(true);
+                      }}
+                      className="w-16 h-16 rounded-2xl bg-custom-primary/10 text-custom-primary flex items-center justify-center text-2xl font-extrabold border border-custom-primary/20 overflow-hidden shadow-xs transition cursor-pointer hover:opacity-90 hover:ring-2 hover:ring-custom-primary/40"
+                      title={profile.profile_image ? 'Click to view full photo' : 'Click to view profile'}
+                    >
                       {profile.profile_image ? (
                         <img src={profile.profile_image} alt={profile.name} className="w-full h-full object-cover" />
                       ) : (
                         getInitials(profile.name)
                       )}
                     </div>
-                    {/* Pencil overlay */}
+                    {/* Pencil badge button (clicking opens upload/change modal) */}
                     <button
-                      onClick={() => {
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         dispatch(setImgPreview(null));
                         dispatch(setImgFile(null));
                         dispatch(setImgModalOpen(true));
                       }}
-                      className="absolute inset-0 w-16 h-16 rounded-2xl bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                      title="Change Profile Picture"
+                      className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-custom-primary text-white flex items-center justify-center shadow-md border-2 border-white dark:border-gray-900 hover:bg-custom-primary-hover active:scale-95 transition cursor-pointer z-10"
+                      title="Update profile picture"
                     >
-                      <FiCamera className="w-5 h-5 text-white" />
+                      <FiEdit2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
@@ -636,6 +675,7 @@ export default function ProfilePage() {
           dispatch(setImgPreview(null));
           dispatch(setImgFile(null));
         }}
+        size="md"
         modalTitle="Update Profile Picture"
         modalBody={
           <div className="space-y-5">
@@ -644,6 +684,8 @@ export default function ProfilePage() {
               <div className="w-32 h-32 rounded-2xl border-2 border-dashed border-custom bg-gray-50 dark:bg-gray-800/40 flex items-center justify-center overflow-hidden">
                 {imgPreview ? (
                   <img src={imgPreview} alt="Preview" className="w-full h-full object-cover rounded-2xl" />
+                ) : profile?.profile_image ? (
+                  <img src={profile.profile_image} alt={profile.name} className="w-full h-full object-cover rounded-2xl" />
                 ) : (
                   <div className="text-center text-custom-muted">
                     <FiCamera className="w-8 h-8 mx-auto mb-2 opacity-40" />
@@ -654,14 +696,26 @@ export default function ProfilePage() {
             </div>
 
             {/* Choose button */}
-            <div className="flex justify-center">
+            <div className="flex justify-center gap-3">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="px-4 py-2 border border-custom rounded-xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
               >
-                Choose Image
+                {imgPreview || profile?.profile_image ? 'Choose Another' : 'Choose Image'}
               </button>
+              {imgPreview && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    dispatch(setImgPreview(null));
+                    dispatch(setImgFile(null));
+                  }}
+                  className="px-3 py-2 border border-custom rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition flex items-center gap-1"
+                >
+                  <FiX className="w-4 h-4" /> Cancel Selection
+                </button>
+              )}
             </div>
 
             {imgFile && (
@@ -669,28 +723,54 @@ export default function ProfilePage() {
             )}
 
             {/* Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-custom">
-              <LoadingButton
-                variant="secondary"
-                onClick={() => {
-                  dispatch(setImgModalOpen(false));
-                  dispatch(setImgPreview(null));
-                  dispatch(setImgFile(null));
-                }}
-              >
-                Cancel
-              </LoadingButton>
-              <LoadingButton
-                variant="primary"
-                isLoading={imgUploading}
-                onClick={handleImageUpload}
-                className="flex items-center gap-2 font-bold"
-              >
-                Upload Image
-              </LoadingButton>
+            <div className="flex items-center justify-between pt-4 border-t border-custom">
+              <div>
+                {profile?.profile_image && (
+                  <LoadingButton
+                    type="button"
+                    variant="danger"
+                    isLoading={imgDeleting}
+                    onClick={handleDeleteImage}
+                    className="flex items-center gap-2 text-xs font-bold"
+                  >
+                    <FiTrash2 className="w-4 h-4" /> Remove Photo
+                  </LoadingButton>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <LoadingButton
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    dispatch(setImgModalOpen(false));
+                    dispatch(setImgPreview(null));
+                    dispatch(setImgFile(null));
+                  }}
+                >
+                  Cancel
+                </LoadingButton>
+                <LoadingButton
+                  type="button"
+                  variant="primary"
+                  isLoading={imgUploading}
+                  disabled={!imgFile}
+                  onClick={handleImageUpload}
+                  className="flex items-center gap-2 font-bold"
+                >
+                  Upload Image
+                </LoadingButton>
+              </div>
             </div>
           </div>
         }
+      />
+
+      {/* --- Reusable Fullscreen Image Preview Modal --- */}
+      <ImagePreviewModal
+        isOpen={viewImageModalOpen}
+        onClose={() => setViewImageModalOpen(false)}
+        imageUrl={profile?.profile_image}
+        name={profile?.name}
       />
     </div>
   );

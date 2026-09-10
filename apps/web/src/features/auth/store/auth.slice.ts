@@ -95,6 +95,11 @@ const authSlice = createSlice({
     setAccessToken(state, action: PayloadAction<string>) {
       state.accessToken = action.payload;
     },
+    updateUser(state, action: PayloadAction<Partial<User>>) {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
+    },
     clearError(state) {
       state.error = null;
     },
@@ -115,6 +120,7 @@ export const {
   checkAuthSuccess,
   checkAuthFailure,
   setAccessToken,
+  updateUser,
   clearError,
 } = authSlice.actions;
 

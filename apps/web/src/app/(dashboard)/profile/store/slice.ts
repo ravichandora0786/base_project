@@ -14,6 +14,7 @@ const initialState = {
   imgPreview: null as string | null,
   imgFile: null as any,
   imgUploading: false,
+  imgDeleting: false,
 };
 
 const profileSlice = createSlice({
@@ -44,6 +45,9 @@ const profileSlice = createSlice({
     setImgUploading(state, action) {
       state.imgUploading = action.payload;
     },
+    setImgDeleting(state, action) {
+      state.imgDeleting = action.payload;
+    },
   },
 });
 
@@ -60,6 +64,7 @@ export const {
   setImgPreview,
   setImgFile,
   setImgUploading,
+  setImgDeleting,
 } = profileSlice.actions;
 
 // Api Actions
@@ -67,3 +72,4 @@ export const getProfile = createAction<any>("GET_PROFILE");
 export const updateProfileData = createAction<any>("UPDATE_PROFILE_DATA");
 export const changePassword = createAction<any>("CHANGE_PASSWORD");
 export const uploadProfileImage = createAction<any>("UPLOAD_PROFILE_IMAGE");
+export const deleteProfileImage = createAction<any>("DELETE_PROFILE_IMAGE");

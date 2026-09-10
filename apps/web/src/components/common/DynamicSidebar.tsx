@@ -26,6 +26,29 @@ interface SidebarProps {
   onCloseMobile?: () => void;
 }
 
+function UserAvatar({ user, shortName }: { user: any; shortName: string }) {
+  const [imgError, setImgError] = React.useState(false);
+
+  React.useEffect(() => {
+    setImgError(false);
+  }, [user?.profile_image]);
+
+  return (
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-custom-primary text-white text-xs font-bold shadow-sm overflow-hidden shrink-0">
+      {user?.profile_image && !imgError ? (
+        <img
+          src={user.profile_image}
+          alt={user?.name || 'User'}
+          className="w-full h-full object-cover rounded-full"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        shortName
+      )}
+    </div>
+  );
+}
+
 export function DynamicSidebar({
   collapsed = false,
   mobileOpen = false,
@@ -216,11 +239,7 @@ export function DynamicSidebar({
               <Menu menuItemStyles={menuItemStyles}>
                 <MenuItem
                   key="profile"
-                  icon={
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-custom-primary text-white text-xs font-bold shadow-sm">
-                      {shortName}
-                    </div>
-                  }
+                  icon={<UserAvatar user={user} shortName={shortName} />}
                   active={isProfileActive}
                   component={<Link href="/profile" onClick={() => onCloseMobile?.()} />}
                 >
@@ -312,11 +331,7 @@ export function DynamicSidebar({
                   <Menu menuItemStyles={menuItemStyles}>
                     <MenuItem
                       key="profile"
-                      icon={
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-custom-primary text-white text-xs font-bold shadow-sm">
-                          {shortName}
-                        </div>
-                      }
+                      icon={<UserAvatar user={user} shortName={shortName} />}
                       active={isProfileActive}
                       component={<Link href="/profile" />}
                     >

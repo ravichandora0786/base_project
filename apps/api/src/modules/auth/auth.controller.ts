@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, Res, UseGuards, HttpCode, HttpStatus, Get, Patch, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Post, Body, Req, Res, UseGuards, HttpCode, HttpStatus, Get, Patch, Delete, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -163,5 +163,12 @@ export class AuthController {
     }
     const profileImageUrl = `http://localhost:${process.env.PORT || 4000}/uploads/${file.filename}`;
     return this.authService.updateProfileImage(userId, profileImageUrl);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('profile-image')
+  @HttpCode(HttpStatus.OK)
+  async deleteProfileImage(@CurrentUser('id') userId: string) {
+    return this.authService.deleteProfileImage(userId);
   }
 }

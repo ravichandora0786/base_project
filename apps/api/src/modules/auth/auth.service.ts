@@ -8,6 +8,8 @@ import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import * as argon2 from 'argon2';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class AuthService {
@@ -30,6 +32,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        profile_image: (user as any).profile_image,
       },
       ...tokens,
     };
@@ -56,6 +59,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        profile_image: (user as any).profile_image,
       },
       ...tokens,
     };
@@ -150,6 +154,20 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('User not found');
 
+    if (user.profile_image) {
+      try {
+        const parts = user.profile_image.split('/uploads/');
+        if (parts[1]) {
+          const oldFilePath = path.join(process.cwd(), 'uploads', parts[1]);
+          if (fs.existsSync(oldFilePath)) {
+            fs.unlinkSync(oldFilePath);
+          }
+        }
+      } catch (err) {
+        // Disk cleanup failure shouldn't abort update
+      }
+    }
+
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { profile_image: imageUrl },
@@ -157,9 +175,53 @@ export class AuthService {
         id: true,
         name: true,
         email: true,
+        phone: true,
+        gender: true,
+        about: true,
+        address: true,
         profile_image: true,
         is_active: true,
         role: { select: { id: true, name: true } },
+        updated_at: true,
+      },
+    });
+
+    return updated;
+  }
+
+  async deleteProfileImage(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    if (user.profile_image) {
+      try {
+        const parts = user.profile_image.split('/uploads/');
+        if (parts[1]) {
+          const filePath = path.join(process.cwd(), 'uploads', parts[1]);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        }
+      } catch (err) {
+        // Ignore file delete errors
+      }
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { profile_image: null },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        gender: true,
+        about: true,
+        address: true,
+        profile_image: true,
+        is_active: true,
+        role: { select: { id: true, name: true } },
+        updated_at: true,
       },
     });
 
