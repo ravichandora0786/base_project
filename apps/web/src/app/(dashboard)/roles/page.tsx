@@ -54,10 +54,42 @@ export default function RolesCRUDPage() {
   const modalOpen = useAppSelector(selectRoleModalOpen);
   const editingRole = useAppSelector(selectEditingRole);
 
-  const rolesArray: Role[] = Array.isArray(rolesData) ? rolesData : [];
+  const rolesArray: Role[] = React.useMemo(() => {
+    if (Array.isArray(rolesData)) return rolesData;
+    if (Array.isArray(rolesData?.data)) return rolesData.data;
+    if (Array.isArray(rolesData?.items)) return rolesData.items;
+    return [];
+  }, [rolesData]);
+
+  const totalRows: number = React.useMemo(() => {
+    if (typeof rolesData?.total === 'number') return rolesData.total;
+    if (typeof rolesData?.pagination?.totalItems === 'number') return rolesData.pagination.totalItems;
+    return rolesArray.length;
+  }, [rolesData, rolesArray]);
+
+  const fetchRoles = React.useCallback(
+    (page: number, pageSize: number, search?: string, status?: any) => {
+      const params: any = {
+        page,
+        pageSize,
+      };
+      const activeSearch = search !== undefined ? search : searchQuery;
+      const activeStatus = status !== undefined ? status : statusFilter;
+
+      if (activeSearch && activeSearch.trim()) {
+        params.search = activeSearch.trim();
+      }
+      if (activeStatus !== undefined && activeStatus !== null && activeStatus !== 'all') {
+        params.is_active = activeStatus;
+      }
+
+      dispatch(getAllRoles({ data: params }));
+    },
+    [dispatch, searchQuery, statusFilter]
+  );
 
   useEffect(() => {
-    dispatch(getAllRoles({}));
+    fetchRoles(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
   }, [dispatch]);
 
   const handleOpenCreate = () => {
@@ -86,7 +118,7 @@ export default function RolesCRUDPage() {
             onSuccess: () => {
               toast.success('Role updated successfully');
               dispatch(setModalOpen(false));
-              dispatch(getAllRoles({}));
+              fetchRoles(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
               dispatch(checkAuthStart());
             },
             onFailure: (err: any) => {
@@ -101,7 +133,7 @@ export default function RolesCRUDPage() {
             onSuccess: () => {
               toast.success('Role created successfully');
               dispatch(setModalOpen(false));
-              dispatch(getAllRoles({}));
+              fetchRoles(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
               dispatch(checkAuthStart());
             },
             onFailure: (err: any) => {
@@ -132,7 +164,7 @@ export default function RolesCRUDPage() {
         id,
         onSuccess: () => {
           toast.success('Role deleted successfully');
-          dispatch(getAllRoles({}));
+          fetchRoles(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
           dispatch(checkAuthStart());
         },
         onFailure: (err: any) => {
@@ -176,7 +208,7 @@ export default function RolesCRUDPage() {
                     data: { name: row.original.name, is_active: newVal },
                     onSuccess: () => {
                       toast.success('Role status updated successfully');
-                      dispatch(getAllRoles({}));
+                      fetchRoles(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
                       dispatch(checkAuthStart());
                     },
                     onFailure: (err: any) => {
@@ -216,23 +248,8 @@ export default function RolesCRUDPage() {
         },
       },
     ],
-    [dispatch, router]
+    [dispatch, router, fetchRoles, pagination, searchQuery, statusFilter]
   );
-
-  // Fetch roles with server-side filtering
-  const fetchWithFilters = (search: string, status: any) => {
-    const params: any = {};
-    if (search) params.search = search;
-    if (status !== 'all') params.is_active = status;
-    dispatch(getAllRoles({ data: params }));
-  };
-
-  // Client-side pagination slicing (data already filtered by server)
-  const slicedRoles = React.useMemo(() => {
-    const start = pagination.pageIndex * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    return rolesArray.slice(start, end);
-  }, [rolesArray, pagination]);
 
   const currentRoleFields = React.useMemo(() => {
     const isAdmin = editingRole?.name?.toLowerCase() === 'admin';
@@ -258,25 +275,28 @@ export default function RolesCRUDPage() {
 
   const handleSearchChange = (val: string) => {
     dispatch(setRoleSearchData({ search: val, status: statusFilter }));
-    dispatch(setRolePagination({ ...pagination, pageIndex: 0 }));
+    const newPagination = { ...pagination, pageIndex: 0 };
+    dispatch(setRolePagination(newPagination));
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => {
-      fetchWithFilters(val, statusFilter);
+      fetchRoles(1, pagination?.pageSize || 10, val, statusFilter);
     }, 300);
   };
 
   const handleStatusChange = (val: any) => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     dispatch(setRoleSearchData({ search: searchQuery, status: val }));
-    dispatch(setRolePagination({ ...pagination, pageIndex: 0 }));
-    fetchWithFilters(searchQuery, val);
+    const newPagination = { ...pagination, pageIndex: 0 };
+    dispatch(setRolePagination(newPagination));
+    fetchRoles(1, pagination?.pageSize || 10, searchQuery, val);
   };
 
   const handleRefresh = () => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     dispatch(setRoleSearchData({ search: '', status: 'all' }));
-    dispatch(setRolePagination({ pageIndex: 0, pageSize: 10 }));
-    dispatch(getAllRoles({}));
+    const newPagination = { pageIndex: 0, pageSize: 10 };
+    dispatch(setRolePagination(newPagination));
+    fetchRoles(1, 10, '', 'all');
   };
 
   return (
@@ -294,10 +314,14 @@ export default function RolesCRUDPage() {
       <div className="flex-1 flex flex-col min-h-0">
         <DataTableComponent
           columns={columns}
-          data={slicedRoles}
+          data={rolesArray}
           pagination={pagination}
-          setPagination={(newPag: any) => dispatch(setRolePagination(newPag))}
-          totalRows={rolesArray.length}
+          setPagination={(newPagination: any) => {
+            const nextPag = typeof newPagination === 'function' ? newPagination(pagination) : newPagination;
+            dispatch(setRolePagination(nextPag));
+            fetchRoles(nextPag.pageIndex + 1, nextPag.pageSize, searchQuery, statusFilter);
+          }}
+          totalRows={totalRows}
         />
       </div>
 

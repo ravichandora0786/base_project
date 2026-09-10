@@ -230,7 +230,7 @@ const DataTableComponent = ({
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
               className="bg-custom-card border border-custom text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-custom-primary cursor-pointer transition shadow-2xs"
             >
-              {[10, 25, 50, 100].map((size) => (
+              {[2,10, 25, 50, 100].map((size) => (
                 <option key={size} value={size}>
                   {size}
                 </option>

@@ -73,8 +73,42 @@ export default function PermissionsCRUDPage() {
   const modalOpen = useAppSelector(selectPermissionModalOpen);
   const editingPermission = useAppSelector(selectEditingPermission);
 
+  const permissionsArray: Permission[] = React.useMemo(() => {
+    if (Array.isArray(permissionsData)) return permissionsData;
+    if (Array.isArray(permissionsData?.data)) return permissionsData.data;
+    if (Array.isArray(permissionsData?.items)) return permissionsData.items;
+    return [];
+  }, [permissionsData]);
+
+  const totalRows: number = React.useMemo(() => {
+    if (typeof permissionsData?.total === 'number') return permissionsData.total;
+    if (typeof permissionsData?.pagination?.totalItems === 'number') return permissionsData.pagination.totalItems;
+    return permissionsArray.length;
+  }, [permissionsData, permissionsArray]);
+
+  const fetchPermissions = React.useCallback(
+    (page: number, pageSize: number, search?: string, status?: any) => {
+      const params: any = {
+        page,
+        pageSize,
+      };
+      const activeSearch = search !== undefined ? search : searchQuery;
+      const activeStatus = status !== undefined ? status : statusFilter;
+
+      if (activeSearch && activeSearch.trim()) {
+        params.search = activeSearch.trim();
+      }
+      if (activeStatus !== undefined && activeStatus !== null && activeStatus !== 'all') {
+        params.is_active = activeStatus;
+      }
+
+      dispatch(getAllPermissions({ data: params }));
+    },
+    [dispatch, searchQuery, statusFilter]
+  );
+
   useEffect(() => {
-    dispatch(getAllPermissions({}));
+    fetchPermissions(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
   }, [dispatch]);
 
   const handleOpenCreate = () => {
@@ -103,7 +137,7 @@ export default function PermissionsCRUDPage() {
             onSuccess: () => {
               toast.success('Permission updated successfully');
               dispatch(setModalOpen(false));
-              dispatch(getAllPermissions({}));
+              fetchPermissions(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
               dispatch(checkAuthStart());
             },
             onFailure: (err: any) => {
@@ -118,7 +152,7 @@ export default function PermissionsCRUDPage() {
             onSuccess: () => {
               toast.success('Permission created successfully');
               dispatch(setModalOpen(false));
-              dispatch(getAllPermissions({}));
+              fetchPermissions(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
               dispatch(checkAuthStart());
             },
             onFailure: (err: any) => {
@@ -149,7 +183,7 @@ export default function PermissionsCRUDPage() {
         id,
         onSuccess: () => {
           toast.success('Permission deleted successfully');
-          dispatch(getAllPermissions({}));
+          fetchPermissions(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
           dispatch(checkAuthStart());
         },
         onFailure: (err: any) => {
@@ -191,7 +225,7 @@ export default function PermissionsCRUDPage() {
                   data: { is_active: newVal },
                   onSuccess: () => {
                     toast.success('Permission status updated successfully');
-                    dispatch(getAllPermissions({}));
+                    fetchPermissions(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
                     dispatch(checkAuthStart());
                   },
                   onFailure: (err: any) => {
@@ -216,49 +250,35 @@ export default function PermissionsCRUDPage() {
         ),
       },
     ],
-    [dispatch]
+    [dispatch, fetchPermissions, pagination, searchQuery, statusFilter]
   );
-
-  // Fetch permissions with server-side filtering
-  const fetchWithFilters = (search: string, status: any) => {
-    const params: any = {};
-    if (search) params.search = search;
-    if (status !== 'all') params.is_active = status;
-    dispatch(getAllPermissions({ data: params }));
-  };
-
-  // Client-side pagination slicing (data already filtered by server)
-  const permissionsArray: Permission[] = Array.isArray(permissionsData) ? permissionsData : [];
-
-  const slicedPermissions = React.useMemo(() => {
-    const start = pagination.pageIndex * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    return permissionsArray.slice(start, end);
-  }, [permissionsArray, pagination]);
 
   const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleSearchChange = (val: string) => {
     dispatch(setPermissionSearchData({ search: val, status: statusFilter }));
-    dispatch(setPermissionPagination({ ...pagination, pageIndex: 0 }));
+    const newPagination = { ...pagination, pageIndex: 0 };
+    dispatch(setPermissionPagination(newPagination));
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => {
-      fetchWithFilters(val, statusFilter);
+      fetchPermissions(1, pagination?.pageSize || 10, val, statusFilter);
     }, 300);
   };
 
   const handleStatusChange = (val: any) => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     dispatch(setPermissionSearchData({ search: searchQuery, status: val }));
-    dispatch(setPermissionPagination({ ...pagination, pageIndex: 0 }));
-    fetchWithFilters(searchQuery, val);
+    const newPagination = { ...pagination, pageIndex: 0 };
+    dispatch(setPermissionPagination(newPagination));
+    fetchPermissions(1, pagination?.pageSize || 10, searchQuery, val);
   };
 
   const handleRefresh = () => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     dispatch(setPermissionSearchData({ search: '', status: 'all' }));
-    dispatch(setPermissionPagination({ pageIndex: 0, pageSize: 10 }));
-    dispatch(getAllPermissions({}));
+    const newPagination = { pageIndex: 0, pageSize: 10 };
+    dispatch(setPermissionPagination(newPagination));
+    fetchPermissions(1, 10, '', 'all');
   };
 
   return (
@@ -276,10 +296,14 @@ export default function PermissionsCRUDPage() {
       <div className="flex-1 flex flex-col min-h-0">
         <DataTableComponent
           columns={columns}
-          data={slicedPermissions}
+          data={permissionsArray}
           pagination={pagination}
-          setPagination={(newPag: any) => dispatch(setPermissionPagination(newPag))}
-          totalRows={permissionsArray.length}
+          setPagination={(newPagination: any) => {
+            const nextPag = typeof newPagination === 'function' ? newPagination(pagination) : newPagination;
+            dispatch(setPermissionPagination(nextPag));
+            fetchPermissions(nextPag.pageIndex + 1, nextPag.pageSize, searchQuery, statusFilter);
+          }}
+          totalRows={totalRows}
         />
       </div>
 

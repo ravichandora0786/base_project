@@ -93,7 +93,7 @@ export default function UsersCRUDPage() {
     return [];
   }, [usersData]);
 
-  const roles: Role[] = Array.isArray(rolesData) ? rolesData : [];
+  const roles: Role[] = Array.isArray(rolesData) ? rolesData : (Array.isArray(rolesData?.data) ? rolesData.data : []);
 
   // Exclude logged-in user by ID and email (from token / currentUser)
   const filteredUsers = React.useMemo(() => {

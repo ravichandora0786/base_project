@@ -49,13 +49,16 @@ export default function RolePermissionsClient() {
         apiClient.get('/role-permissions'),
       ]);
 
-      setRoles(rolesRes.data);
+      const allRoles = Array.isArray(rolesRes.data) ? rolesRes.data : (rolesRes.data?.data || []);
+      setRoles(allRoles);
       setRole(roleRes.data);
       
-      const allModules = (modulesRes.data as AppModule[]).filter((m) => m.is_active);
+      const allModulesRaw = Array.isArray(modulesRes.data) ? modulesRes.data : (modulesRes.data?.data || []);
+      const allModules: AppModule[] = allModulesRaw.filter((m: any) => m.is_active);
       setModules(allModules);
 
-      const allPermissions = (permissionsRes.data as Permission[]).filter((p) => p.is_active);
+      const allPermissionsRaw = Array.isArray(permissionsRes.data) ? permissionsRes.data : (permissionsRes.data?.data || []);
+      const allPermissions: Permission[] = allPermissionsRaw.filter((p: any) => p.is_active);
       setPermissions(allPermissions);
 
       // Filter mappings for this specific role
@@ -71,7 +74,7 @@ export default function RolePermissionsClient() {
 
       // Initialize selected permissions map
       const initialSelection: Record<string, string[]> = {};
-      allModules.forEach((m) => {
+      allModules.forEach((m: AppModule) => {
         const matchedMapping = roleMappings.find((map) => map.module_id === m.id);
         initialSelection[m.id] = matchedMapping ? matchedMapping.permission_ids : [];
       });

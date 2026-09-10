@@ -86,8 +86,42 @@ export default function ModulesCRUDPage() {
   const modalOpen = useAppSelector(selectModuleModalOpen);
   const editingModule = useAppSelector(selectEditingModule);
 
+  const modulesArray: AppModule[] = React.useMemo(() => {
+    if (Array.isArray(modulesData)) return modulesData;
+    if (Array.isArray(modulesData?.data)) return modulesData.data;
+    if (Array.isArray(modulesData?.items)) return modulesData.items;
+    return [];
+  }, [modulesData]);
+
+  const totalRows: number = React.useMemo(() => {
+    if (typeof modulesData?.total === 'number') return modulesData.total;
+    if (typeof modulesData?.pagination?.totalItems === 'number') return modulesData.pagination.totalItems;
+    return modulesArray.length;
+  }, [modulesData, modulesArray]);
+
+  const fetchModules = React.useCallback(
+    (page: number, pageSize: number, search?: string, status?: any) => {
+      const params: any = {
+        page,
+        pageSize,
+      };
+      const activeSearch = search !== undefined ? search : searchQuery;
+      const activeStatus = status !== undefined ? status : statusFilter;
+
+      if (activeSearch && activeSearch.trim()) {
+        params.search = activeSearch.trim();
+      }
+      if (activeStatus !== undefined && activeStatus !== null && activeStatus !== 'all') {
+        params.is_active = activeStatus;
+      }
+
+      dispatch(getAllModules({ data: params }));
+    },
+    [dispatch, searchQuery, statusFilter]
+  );
+
   useEffect(() => {
-    dispatch(getAllModules({}));
+    fetchModules(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
   }, [dispatch]);
 
   const handleOpenCreate = () => {
@@ -115,7 +149,7 @@ export default function ModulesCRUDPage() {
             onSuccess: () => {
               toast.success('Module updated successfully');
               dispatch(setModalOpen(false));
-              dispatch(getAllModules({}));
+              fetchModules(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
               dispatch(checkAuthStart());
             },
             onFailure: (err: any) => {
@@ -130,7 +164,7 @@ export default function ModulesCRUDPage() {
             onSuccess: () => {
               toast.success('Module created successfully');
               dispatch(setModalOpen(false));
-              dispatch(getAllModules({}));
+              fetchModules(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
               dispatch(checkAuthStart());
             },
             onFailure: (err: any) => {
@@ -161,7 +195,7 @@ export default function ModulesCRUDPage() {
         id,
         onSuccess: () => {
           toast.success('Module deleted successfully');
-          dispatch(getAllModules({}));
+          fetchModules(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
           dispatch(checkAuthStart());
         },
         onFailure: (err: any) => {
@@ -209,7 +243,7 @@ export default function ModulesCRUDPage() {
                   data: { is_active: newVal },
                   onSuccess: () => {
                     toast.success('Module status updated');
-                    dispatch(getAllModules({}));
+                    fetchModules(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
                     dispatch(checkAuthStart());
                   },
                   onFailure: (err: any) => {
@@ -234,49 +268,35 @@ export default function ModulesCRUDPage() {
         ),
       },
     ],
-    [dispatch]
+    [dispatch, fetchModules, pagination, searchQuery, statusFilter]
   );
-
-  // Fetch modules with server-side filtering
-  const fetchWithFilters = (search: string, status: any) => {
-    const params: any = {};
-    if (search) params.search = search;
-    if (status !== 'all') params.is_active = status;
-    dispatch(getAllModules({ data: params }));
-  };
-
-  // Client-side pagination slicing (data already filtered by server)
-  const modulesArray: AppModule[] = Array.isArray(modulesData) ? modulesData : [];
-
-  const slicedModules = React.useMemo(() => {
-    const start = pagination.pageIndex * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    return modulesArray.slice(start, end);
-  }, [modulesArray, pagination]);
 
   const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleSearchChange = (val: string) => {
     dispatch(setModuleSearchData({ search: val, status: statusFilter }));
-    dispatch(setModulePagination({ ...pagination, pageIndex: 0 }));
+    const newPagination = { ...pagination, pageIndex: 0 };
+    dispatch(setModulePagination(newPagination));
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => {
-      fetchWithFilters(val, statusFilter);
+      fetchModules(1, pagination?.pageSize || 10, val, statusFilter);
     }, 300);
   };
 
   const handleStatusChange = (val: any) => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     dispatch(setModuleSearchData({ search: searchQuery, status: val }));
-    dispatch(setModulePagination({ ...pagination, pageIndex: 0 }));
-    fetchWithFilters(searchQuery, val);
+    const newPagination = { ...pagination, pageIndex: 0 };
+    dispatch(setModulePagination(newPagination));
+    fetchModules(1, pagination?.pageSize || 10, searchQuery, val);
   };
 
   const handleRefresh = () => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     dispatch(setModuleSearchData({ search: '', status: 'all' }));
-    dispatch(setModulePagination({ pageIndex: 0, pageSize: 10 }));
-    dispatch(getAllModules({}));
+    const newPagination = { pageIndex: 0, pageSize: 10 };
+    dispatch(setModulePagination(newPagination));
+    fetchModules(1, 10, '', 'all');
   };
 
   return (
@@ -294,10 +314,14 @@ export default function ModulesCRUDPage() {
       <div className="flex-1 flex flex-col min-h-0">
         <DataTableComponent
           columns={columns}
-          data={slicedModules}
+          data={modulesArray}
           pagination={pagination}
-          setPagination={(newPag: any) => dispatch(setModulePagination(newPag))}
-          totalRows={modulesArray.length}
+          setPagination={(newPagination: any) => {
+            const nextPag = typeof newPagination === 'function' ? newPagination(pagination) : newPagination;
+            dispatch(setModulePagination(nextPag));
+            fetchModules(nextPag.pageIndex + 1, nextPag.pageSize, searchQuery, statusFilter);
+          }}
+          totalRows={totalRows}
         />
       </div>
 
