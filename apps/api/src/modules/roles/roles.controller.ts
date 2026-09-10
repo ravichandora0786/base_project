@@ -4,11 +4,14 @@ import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { ModuleActiveGuard } from '../../common/guards/module-active.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { ModuleKey } from '../../common/decorators/module-key.decorator';
 import { RoleEnum } from '../../common/constants/enums';
 
 @Controller('roles')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ModuleActiveGuard)
+@ModuleKey('role')
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 

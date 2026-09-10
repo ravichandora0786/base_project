@@ -11,6 +11,7 @@ interface TableRowActionsProps {
   editTitle?: string;
   deleteTitle?: string;
   viewTitle?: string;
+  deleteDisabled?: boolean;
   extraActions?: React.ReactNode;
 }
 
@@ -21,6 +22,7 @@ export default function TableRowActions({
   editTitle = 'Edit',
   deleteTitle = 'Delete',
   viewTitle = 'View Details',
+  deleteDisabled = false,
   extraActions,
 }: TableRowActionsProps) {
   return (
@@ -54,8 +56,13 @@ export default function TableRowActions({
       {onDelete && (
         <LoadingButton
           variant="custom"
-          onClick={onDelete}
-          className="w-8 h-8 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border border-transparent hover:border-red-100 dark:hover:border-red-900/40 transition inline-flex items-center justify-center shadow-2xs"
+          onClick={deleteDisabled ? undefined : onDelete}
+          disabled={deleteDisabled}
+          className={`w-8 h-8 rounded-lg transition inline-flex items-center justify-center shadow-2xs ${
+            deleteDisabled
+              ? 'text-slate-300 dark:text-slate-600 bg-slate-100 dark:bg-slate-800/40 cursor-not-allowed border border-transparent opacity-50'
+              : 'text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border border-transparent hover:border-red-100 dark:hover:border-red-900/40'
+          }`}
           aria-label={deleteTitle}
           title={deleteTitle}
         >

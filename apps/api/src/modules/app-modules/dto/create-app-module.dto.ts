@@ -1,12 +1,13 @@
-import { IsNotEmpty, IsString, IsBoolean, IsOptional, IsInt } from 'class-validator';
+import { IsNotEmpty, IsString, IsBoolean, IsOptional, IsInt, Matches } from 'class-validator';
 
 export class CreateAppModuleDto {
   @IsString()
-  @IsNotEmpty({ message: 'Module name is required' })
-  name: string;
+  @IsOptional()
+  name?: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Display name is required' })
+  @Matches(/^[a-zA-Z\s]+$/, { message: 'Display name can only contain alphabets and spaces' })
   display_name: string;
 
   @IsBoolean()

@@ -25,14 +25,12 @@ import {
   selectRolePagination,
   selectRoleSearchData,
   selectRoleModalOpen,
-  selectEditingRole,
 } from './store/selector';
 import {
   getAllRoles,
   setRolePagination,
   setRoleSearchData,
   setModalOpen,
-  setEditingRole,
   createRole,
   updateRole,
   deleteRole,
@@ -52,7 +50,6 @@ export default function RolesCRUDPage() {
   const pagination = useAppSelector(selectRolePagination);
   const { search: searchQuery, status: statusFilter } = useAppSelector(selectRoleSearchData);
   const modalOpen = useAppSelector(selectRoleModalOpen);
-  const editingRole = useAppSelector(selectEditingRole);
 
   const rolesArray: Role[] = React.useMemo(() => {
     if (Array.isArray(rolesData)) return rolesData;
@@ -101,55 +98,30 @@ export default function RolesCRUDPage() {
   }, [dispatch]);
 
   const handleOpenCreate = () => {
-    dispatch(setEditingRole(null));
-    dispatch(setModalOpen(true));
-  };
-
-  const handleOpenEdit = (role: Role) => {
-    dispatch(setEditingRole(role));
     dispatch(setModalOpen(true));
   };
 
   const handleSubmit = async (values: any, { setSubmitting }: any) => {
     try {
-      const isAdmin = editingRole?.name?.toLowerCase() === 'admin';
       const payload = {
-        name: isAdmin ? 'admin' : values.name,
-        is_active: isAdmin ? true : values.is_active,
+        name: values.name.trim().toLowerCase(),
+        is_active: values.is_active,
       };
 
-      if (editingRole) {
-        dispatch(
-          updateRole({
-            id: editingRole.id,
-            data: payload,
-            onSuccess: () => {
-              toast.success('Role updated successfully');
-              dispatch(setModalOpen(false));
-              fetchRoles(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
-              dispatch(checkAuthStart());
-            },
-            onFailure: (err: any) => {
-              toast.error(err.message || 'Update failed');
-            },
-          })
-        );
-      } else {
-        dispatch(
-          createRole({
-            data: payload,
-            onSuccess: () => {
-              toast.success('Role created successfully');
-              dispatch(setModalOpen(false));
-              fetchRoles(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
-              dispatch(checkAuthStart());
-            },
-            onFailure: (err: any) => {
-              toast.error(err.message || 'Creation failed');
-            },
-          })
-        );
-      }
+      dispatch(
+        createRole({
+          data: payload,
+          onSuccess: () => {
+            toast.success('Role created successfully');
+            dispatch(setModalOpen(false));
+            fetchRoles(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
+            dispatch(checkAuthStart());
+          },
+          onFailure: (err: any) => {
+            toast.error(err.message || 'Creation failed');
+          },
+        })
+      );
     } catch (error: any) {
       toast.error('Action failed');
     } finally {
@@ -157,10 +129,20 @@ export default function RolesCRUDPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (role: Role) => {
+    const userCount = role._count?.users ?? 0;
+    if (userCount > 0) {
+      toast.error(`Cannot delete role '${role.name}' because it is assigned to ${userCount} user(s).`);
+      return;
+    }
+    if (role.name?.toLowerCase() === 'admin') {
+      toast.error('Admin role cannot be deleted');
+      return;
+    }
+
     const isConfirmed = await confirm({
       title: 'Delete Role?',
-      message: 'Are you sure you want to delete this role? This action cannot be undone.',
+      message: `Are you sure you want to delete role '${role.name}'? This action cannot be undone.`,
       confirmText: 'Delete',
       cancelText: 'Cancel',
       variant: 'danger',
@@ -169,7 +151,7 @@ export default function RolesCRUDPage() {
 
     dispatch(
       deleteRole({
-        id,
+        id: role.id,
         onSuccess: () => {
           toast.success('Role deleted successfully');
           fetchRoles(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
@@ -194,26 +176,55 @@ export default function RolesCRUDPage() {
         },
       },
       {
+        header: 'Assigned Users',
+        id: 'assigned_users',
+        cell: ({ row }) => {
+          const userCount = row.original._count?.users ?? 0;
+          return (
+            <span
+              className={`inline-flex items-center text-xs font-medium`}
+            >
+              {userCount}
+            </span>
+          );
+        },
+      },
+      {
         header: 'Status',
         accessorKey: 'is_active',
         cell: ({ row }) => {
           const isAdmin = row.original.name?.toLowerCase() === 'admin';
+          const userCount = row.original._count?.users ?? 0;
+          const isAssigned = userCount > 0;
+          const isDeactivateDisabled = isAdmin || (row.original.is_active && isAssigned);
+          const switchTitle = isAdmin
+            ? 'Admin role cannot be deactivated'
+            : row.original.is_active && isAssigned
+            ? `Cannot deactivate role assigned to ${userCount} user${userCount > 1 ? 's' : ''}`
+            : undefined;
+
           return (
             <CustomSwitch
               name={`role-status-${row.original.id}`}
               checked={row.original.is_active}
-              disabled={isAdmin}
-              title={isAdmin ? 'Admin role cannot be deactivated' : undefined}
+              disabled={isDeactivateDisabled}
+              title={switchTitle}
               onChange={(e) => {
                 if (isAdmin) {
                   toast.error('Admin role cannot be deactivated');
                   return;
                 }
                 const newVal = e.target.checked;
+                if (!newVal && isAssigned) {
+                  toast.error(
+                    `Cannot deactivate role '${row.original.name}' because it is assigned to ${userCount} user(s).`
+                  );
+                  return;
+                }
                 dispatch(
                   updateRole({
                     id: row.original.id,
-                    data: { name: row.original.name, is_active: newVal },
+                    data: { is_active: newVal },
                     onSuccess: () => {
                       toast.success('Role status updated successfully');
                       fetchRoles(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
@@ -234,6 +245,13 @@ export default function RolesCRUDPage() {
         id: 'actions',
         cell: ({ row }) => {
           const isAdmin = row.original.name?.toLowerCase() === 'admin';
+          const userCount = row.original._count?.users ?? 0;
+          const isAssigned = userCount > 0;
+          const deleteDisabled = isAssigned;
+          const deleteTitle = isAssigned
+            ? `Cannot delete role assigned to ${userCount} user${userCount > 1 ? 's' : ''}`
+            : 'Delete Role';
+
           return (
             <TableRowActions
               extraActions={
@@ -247,10 +265,9 @@ export default function RolesCRUDPage() {
                   <FiLock className="w-4 h-4" />
                 </LoadingButton>
               }
-              onEdit={() => handleOpenEdit(row.original)}
-              onDelete={!isAdmin ? () => handleDelete(row.original.id) : undefined}
-              editTitle="Edit Role"
-              deleteTitle="Delete Role"
+              onDelete={!isAdmin ? () => handleDelete(row.original) : undefined}
+              deleteDisabled={deleteDisabled}
+              deleteTitle={deleteTitle}
             />
           );
         },
@@ -259,25 +276,20 @@ export default function RolesCRUDPage() {
     [dispatch, router, fetchRoles, pagination, searchQuery, statusFilter]
   );
 
-  const currentRoleFields = React.useMemo(() => {
-    const isAdmin = editingRole?.name?.toLowerCase() === 'admin';
-    return [
-      {
-        name: 'name',
-        label: 'Role Name',
-        type: 'text',
-        required: true,
-        disabled: isAdmin,
-      },
-      {
-        name: 'is_active',
-        label: 'Status Active',
-        type: 'toggle',
-        required: false,
-        disabled: isAdmin,
-      },
-    ];
-  }, [editingRole]);
+  const currentRoleFields = [
+    {
+      name: 'name',
+      label: 'Role Name',
+      type: 'text',
+      required: true,
+    },
+    {
+      name: 'is_active',
+      label: 'Status Active',
+      type: 'toggle',
+      required: false,
+    },
+  ];
 
   const handleSearchChange = (val: string) => {
     dispatch(setRoleSearchData({ search: val, status: statusFilter }));
@@ -335,12 +347,12 @@ export default function RolesCRUDPage() {
       <GenericModal
         showModal={modalOpen}
         closeModal={() => dispatch(setModalOpen(false))}
-        modalTitle={editingRole ? 'Update Role' : 'Create Role'}
+        modalTitle="Create Role"
         modalBody={
           <Formik
             initialValues={{
-              name: editingRole ? editingRole.name : '',
-              is_active: editingRole ? editingRole.is_active : true,
+              name: '',
+              is_active: true,
             }}
             validationSchema={validationSchema}
             enableReinitialize={true}

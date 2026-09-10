@@ -3,10 +3,27 @@ import { PrismaService } from '../../database/prisma.service';
 import { RegisterDto } from '../auth/dto/register.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as argon2 from 'argon2';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
+
+  private deleteUploadFile(imageUrl?: string | null) {
+    if (!imageUrl) return;
+    try {
+      const parts = imageUrl.split('/uploads/');
+      if (parts[1]) {
+        const filePath = path.join(process.cwd(), 'uploads', parts[1]);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+    } catch (err) {
+      // Ignore cleanup error
+    }
+  }
 
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({
@@ -38,6 +55,7 @@ export class UsersService {
                 module: {
                   select: {
                     name: true,
+                    is_active: true,
                   },
                 },
                 permission_ids: true,
@@ -66,7 +84,7 @@ export class UsersService {
       permissions['*'] = ['*'];
     } else {
       user.role?.rolePermissions?.forEach((rp: any) => {
-        if (!rp.module?.name) return;
+        if (!rp.module?.name || !rp.module.is_active) return;
         const ids = Array.isArray(rp.permission_ids) ? rp.permission_ids : [];
         const codes = ids
           .map((pid: string) => permissionMap.get(pid))
@@ -284,6 +302,11 @@ export class UsersService {
       }
     }
 
+    // Clean up old profile image from disk if it is being updated or removed
+    if (dto.profile_image !== undefined && user.profile_image && user.profile_image !== dto.profile_image) {
+      this.deleteUploadFile(user.profile_image);
+    }
+
     return this.prisma.user.update({
       where: { id },
       data: {
@@ -334,9 +357,38 @@ export class UsersService {
   }
 
   async remove(id: string) {
-    await this.findById(id);
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.profile_image) {
+      this.deleteUploadFile(user.profile_image);
+    }
     return this.prisma.user.delete({
       where: { id },
+    });
+  }
+
+  async deleteProfileImage(id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.profile_image) {
+      this.deleteUploadFile(user.profile_image);
+    }
+    return this.prisma.user.update({
+      where: { id },
+      data: { profile_image: null },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        profile_image: true,
+        is_active: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     });
   }
 }

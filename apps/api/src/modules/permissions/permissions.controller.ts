@@ -4,11 +4,14 @@ import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { ModuleActiveGuard } from '../../common/guards/module-active.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { ModuleKey } from '../../common/decorators/module-key.decorator';
 import { RoleEnum } from '../../common/constants/enums';
 
 @Controller('permissions')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ModuleActiveGuard)
+@ModuleKey('permission')
 export class PermissionsController {
   constructor(private readonly permissionsService: PermissionsService) {}
 

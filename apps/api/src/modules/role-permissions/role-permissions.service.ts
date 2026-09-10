@@ -31,6 +31,40 @@ export class RolePermissionsService {
   }
 
   async findAll() {
+    // Automatically ensure Admin role has all permissions for all modules
+    try {
+      const adminRole = await this.prisma.role.findFirst({
+        where: { name: { equals: 'admin', mode: 'insensitive' } },
+      });
+      if (adminRole) {
+        const [allModules, allPermissions, existingAdminMappings] = await Promise.all([
+          this.prisma.module.findMany(),
+          this.prisma.permission.findMany(),
+          this.prisma.rolePermission.findMany({ where: { role_id: adminRole.id } }),
+        ]);
+        const mappedModuleIds = new Set(existingAdminMappings.map((m) => m.module_id));
+        const allPermissionIds = allPermissions.map((p) => p.id);
+
+        for (const mod of allModules) {
+          if (!mappedModuleIds.has(mod.id)) {
+            const name = `admin_${mod.name}_mapping`;
+            await this.prisma.rolePermission.upsert({
+              where: { name },
+              update: { permission_ids: allPermissionIds },
+              create: {
+                name,
+                role_id: adminRole.id,
+                module_id: mod.id,
+                permission_ids: allPermissionIds,
+              },
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error auto-syncing Admin role permissions', err);
+    }
+
     return this.prisma.rolePermission.findMany({
       include: {
         role: true,
@@ -140,8 +174,12 @@ export class RolePermissionsService {
       }
     }
 
-    // 6. Delete any existing mappings in db for this role for modules that were completely omitted from input rolePermissions
-    const omittedMappings = existingMappings.filter((em) => !inputModuleIds.has(em.module_id));
+    // 6. Delete any existing mappings in db for this role for modules that were omitted, but ONLY if that module is currently active
+    // Inactive modules must retain their configured permissions in case they are re-activated later
+    const activeModuleIds = new Set(allModules.filter((m) => m.is_active).map((m) => m.id));
+    const omittedMappings = existingMappings.filter(
+      (em) => activeModuleIds.has(em.module_id) && !inputModuleIds.has(em.module_id),
+    );
     for (const om of omittedMappings) {
       await this.prisma.rolePermission.delete({
         where: { id: om.id },

@@ -42,6 +42,9 @@ export interface Role {
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
+  _count?: {
+    users?: number;
+  };
 }
 
 export interface AppModule {
@@ -61,6 +64,7 @@ export interface Permission {
   name: string;
   code: string;
   is_active: boolean;
+  is_assigned?: boolean;
   created_at?: string;
   updated_at?: string;
 }

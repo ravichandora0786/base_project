@@ -17,7 +17,7 @@ import {
   PASSWORD_REGEX,
   PASSWORD_ERROR,
 } from '@/lib/constants';
-import { FiArrowLeft, FiCamera, FiSave } from 'react-icons/fi';
+import { FiArrowLeft, FiCamera, FiSave, FiTrash2, FiX } from 'react-icons/fi';
 import { getInitials } from '@/lib/utils';
 
 interface AddEditUserComponentProps {
@@ -35,6 +35,7 @@ export default function AddEditUserComponent({ userId, isEdit }: AddEditUserComp
   // Profile image local upload state
   const [selectedImgFile, setSelectedImgFile] = useState<File | null>(null);
   const [selectedImgPreview, setSelectedImgPreview] = useState<string | null>(null);
+  const [removeProfileImage, setRemoveProfileImage] = useState(false);
 
   const [initialValues, setInitialValues] = useState({
     name: '',
@@ -306,6 +307,8 @@ export default function AddEditUserComponent({ userId, isEdit }: AddEditUserComp
         await apiClient.patch(`/users/${targetUserId}/profile-image`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
+      } else if (removeProfileImage && isEdit && targetUserId) {
+        await apiClient.delete(`/users/${targetUserId}/profile-image`);
       }
 
       toast.success(isEdit ? 'User updated successfully' : 'User created successfully');
@@ -330,6 +333,7 @@ export default function AddEditUserComponent({ userId, isEdit }: AddEditUserComp
     setSelectedImgFile(file);
     const previewUrl = URL.createObjectURL(file);
     setSelectedImgPreview(previewUrl);
+    setRemoveProfileImage(false);
   };
 
   // Clean up object URL when component unmounts
@@ -373,11 +377,11 @@ export default function AddEditUserComponent({ userId, isEdit }: AddEditUserComp
 
         {/* Profile Picture Upload Section (for BOTH Add & Edit modes) */}
         <div className="flex flex-col items-center sm:flex-row gap-6 pb-6 mb-6 border-b border-custom">
-          <div className="relative group">
-            <div className="w-24 h-24 rounded-2xl bg-custom-primary/10 text-custom-primary flex items-center justify-center text-3xl font-extrabold border border-custom-primary/20 overflow-hidden">
+          <div className="relative group shrink-0">
+            <div className="w-24 h-24 rounded-2xl bg-custom-primary/10 text-custom-primary flex items-center justify-center text-3xl font-extrabold border border-custom-primary/20 overflow-hidden shadow-xs">
               {selectedImgPreview ? (
                 <img src={selectedImgPreview} alt="Selected preview" className="w-full h-full object-cover" />
-              ) : initialValues.profile_image ? (
+              ) : (initialValues.profile_image && !removeProfileImage) ? (
                 <img src={initialValues.profile_image} alt="User profile" className="w-full h-full object-cover" />
               ) : (
                 getInitials(initialValues.name || 'U')
@@ -386,15 +390,59 @@ export default function AddEditUserComponent({ userId, isEdit }: AddEditUserComp
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="absolute inset-0 w-24 h-24 rounded-2xl bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+              className="absolute inset-0 w-24 h-24 rounded-2xl bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
               title="Select Profile Photo"
             >
               <FiCamera className="w-6 h-6 text-white" />
             </button>
           </div>
-          <div className="text-center sm:text-left">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Profile Photo</h3>
-            <p className="text-xs text-custom-muted mt-1">Click image to select. Maximum size 2MB (JPG, PNG, WEBP).</p>
+          <div className="text-center sm:text-left space-y-2">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Profile Photo</h3>
+              <p className="text-xs text-custom-muted mt-0.5">Click image to select. Maximum size 2MB (JPG, PNG, WEBP).</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="px-3 py-1.5 border border-custom rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer"
+              >
+                {selectedImgPreview ? 'Change Selected' : (initialValues.profile_image && !removeProfileImage) ? 'Change Photo' : 'Choose Photo'}
+              </button>
+              {selectedImgPreview && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedImgFile(null);
+                    setSelectedImgPreview(null);
+                  }}
+                  className="px-3 py-1.5 border border-custom rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer flex items-center gap-1"
+                >
+                  <FiX className="w-3.5 h-3.5" /> Cancel Selection
+                </button>
+              )}
+              {initialValues.profile_image && !selectedImgPreview && !removeProfileImage && (
+                <button
+                  type="button"
+                  onClick={() => setRemoveProfileImage(true)}
+                  className="px-3 py-1.5 border border-red-200 dark:border-red-900/40 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition cursor-pointer flex items-center gap-1"
+                >
+                  <FiTrash2 className="w-3.5 h-3.5" /> Remove Photo
+                </button>
+              )}
+              {removeProfileImage && (
+                <button
+                  type="button"
+                  onClick={() => setRemoveProfileImage(false)}
+                  className="px-3 py-1.5 border border-custom rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer"
+                >
+                  Undo Remove
+                </button>
+              )}
+            </div>
+            {removeProfileImage && (
+              <p className="text-xs text-red-500 font-medium">Photo will be deleted upon saving.</p>
+            )}
           </div>
           <input
             ref={fileInputRef}

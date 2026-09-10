@@ -1,8 +1,9 @@
-import { IsString, IsBoolean, IsOptional } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, Matches } from 'class-validator';
 
 export class UpdatePermissionDto {
   @IsString()
   @IsOptional()
+  @Matches(/^[a-zA-Z\s]+$/, { message: 'Permission name can only contain alphabets and spaces' })
   name?: string;
 
   @IsString()

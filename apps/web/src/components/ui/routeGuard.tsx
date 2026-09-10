@@ -7,6 +7,8 @@ import { logoutStart, checkAuthStart } from '@/features/auth/store/auth.slice';
 import Cookies from 'js-cookie';
 import { PUBLIC_ROUTES } from '@/lib/constants/routes';
 
+import { toast } from 'react-toastify';
+
 export default function RouteGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -43,7 +45,7 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
     const isPublic = PUBLIC_ROUTES.includes(path);
 
     // If session exists on hard refresh, wait for checkAuth to complete before deciding to redirect
-    if (hasSession && !isAuthenticated && isLoading && !isPublic) {
+    if (hasSession && (!user || isLoading) && !isPublic) {
       return;
     }
 
@@ -63,28 +65,38 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
 
     // 3. Role-based permission checks on private pages
     if (loggedIn && !isPublic) {
+      // Dashboard and personal profile are always accessible
       if (path === '/dashboard' || path.startsWith('/profile')) {
         setAuthorized(true);
         return;
       }
 
-      // Check module access
-      let moduleName = path.split('/')[1]; 
-      if (moduleName.endsWith('s')) {
+      // Admin has super privileges and can access all routes (active or inactive)
+      if (user?.role?.name?.toLowerCase() === 'admin') {
+        setAuthorized(true);
+        return;
+      }
+
+      // For other roles (non-admin): check module access
+      let moduleName = path.split('/')[1]?.toLowerCase(); 
+      if (moduleName) {
         if (moduleName === 'roles') moduleName = 'role';
         else if (moduleName === 'permissions') moduleName = 'permission';
         else if (moduleName === 'modules') moduleName = 'module';
         else if (moduleName === 'users') moduleName = 'user';
+        else if (moduleName.endsWith('s')) moduleName = moduleName.slice(0, -1);
       }
 
-      if (user && user.role && user.role.name !== 'admin') {
-        const userPermissions = user.permissions || {};
-        const hasModuleAccess = !!userPermissions[moduleName.toLowerCase()];
-        if (!hasModuleAccess) {
-          setAuthorized(false);
-          router.push('/_not-found');
-          return;
-        }
+      const userPermissions = user?.permissions || {};
+      const hasModuleAccess = !!userPermissions[moduleName];
+
+      if (!hasModuleAccess) {
+        setAuthorized(false);
+        toast.error('This module is currently inactive or access is restricted.', {
+          toastId: 'module-inactive-toast',
+        });
+        router.push('/dashboard');
+        return;
       }
     }
 

@@ -4,11 +4,15 @@ import { CreateAppModuleDto } from './dto/create-app-module.dto';
 import { UpdateAppModuleDto } from './dto/update-app-module.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { ModuleActiveGuard } from '../../common/guards/module-active.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { ModuleKey, BypassModuleActive } from '../../common/decorators/module-key.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RoleEnum } from '../../common/constants/enums';
 
 @Controller('modules')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ModuleActiveGuard)
+@ModuleKey('module')
 export class AppModulesController {
   constructor(private readonly appModulesService: AppModulesService) {}
 
@@ -18,6 +22,7 @@ export class AppModulesController {
     return this.appModulesService.create(createAppModuleDto);
   }
 
+  @BypassModuleActive()
   @Get()
   findAll(
     @Query('search') search?: string,
@@ -25,10 +30,13 @@ export class AppModulesController {
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
     @Query('limit') limit?: string,
+    @CurrentUser() currentUser?: any,
   ) {
+    const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
     return this.appModulesService.findAll({
       search,
-      isActive,
+      // Admin sees whatever is requested (all if undefined); non-admin ONLY receives active modules
+      isActive: isAdmin ? isActive : 'true',
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : (limit ? Number(limit) : undefined),
     });

@@ -36,29 +36,10 @@ import {
   deletePermission,
 } from './store/slice';
 
-const permissionFields = [
-  {
-    name: 'name',
-    label: 'Permission Name',
-    type: 'text',
-    required: true,
-  },
-  {
-    name: 'code',
-    label: 'Permission Code',
-    type: 'text',
-    required: true,
-  },
-  {
-    name: 'is_active',
-    label: 'Status Active',
-    type: 'toggle',
-    required: false,
-  },
-];
-
 const validationSchema = Yup.object().shape({
-  name: Yup.string().required('Permission name is required'),
+  name: Yup.string()
+    .matches(/^[A-Za-z\s]+$/, 'Permission name can only contain alphabets and spaces')
+    .required('Permission name is required'),
   code: Yup.string().required('Permission code is required'),
 });
 
@@ -72,6 +53,43 @@ export default function PermissionsCRUDPage() {
   const { search: searchQuery, status: statusFilter } = useAppSelector(selectPermissionSearchData);
   const modalOpen = useAppSelector(selectPermissionModalOpen);
   const editingPermission = useAppSelector(selectEditingPermission);
+
+  const permissionFields = React.useMemo(() => {
+    const isAssigned = !!editingPermission?.is_assigned;
+    return [
+      {
+        name: 'name',
+        label: 'Permission Name',
+        type: 'text',
+        required: true,
+        placeholder: 'Enter Permission Name',
+        onChange: (e: React.ChangeEvent<HTMLInputElement>, setFieldValue: any) => {
+          const lettersOnly = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+          setFieldValue('name', lettersOnly);
+          const autoCode = lettersOnly
+            .toLowerCase()
+            .replace(/^\s+/, '')
+            .replace(/\s+/g, '_');
+          setFieldValue('code', autoCode);
+        },
+      },
+      {
+        name: 'code',
+        label: 'Permission Code',
+        type: 'text',
+        required: true,
+        disabled: true,
+        placeholder: 'Generated automatically',
+      },
+      {
+        name: 'is_active',
+        label: 'Status Active',
+        type: 'toggle',
+        required: false,
+        disabled: isAssigned && editingPermission?.is_active,
+      },
+    ];
+  }, [editingPermission]);
 
   const permissionsArray: Permission[] = React.useMemo(() => {
     if (Array.isArray(permissionsData)) return permissionsData;
@@ -131,9 +149,11 @@ export default function PermissionsCRUDPage() {
 
   const handleSubmit = async (values: any, { setSubmitting }: any) => {
     try {
+      const trimmedName = values.name.trim();
+      const code = trimmedName.toLowerCase().replace(/\s+/g, '_');
       const payload = {
-        name: values.name,
-        code: values.code,
+        name: trimmedName,
+        code,
         is_active: values.is_active,
       };
 
@@ -176,10 +196,15 @@ export default function PermissionsCRUDPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (permission: Permission) => {
+    if (permission.is_assigned) {
+      toast.error(`Cannot delete permission '${permission.name}' because it is assigned to a role or module.`);
+      return;
+    }
+
     const isConfirmed = await confirm({
       title: 'Delete Permission?',
-      message: 'Are you sure you want to delete this permission? This action cannot be undone.',
+      message: `Are you sure you want to delete permission '${permission.name}'? This action cannot be undone.`,
       confirmText: 'Delete',
       cancelText: 'Cancel',
       variant: 'danger',
@@ -188,7 +213,7 @@ export default function PermissionsCRUDPage() {
 
     dispatch(
       deletePermission({
-        id,
+        id: permission.id,
         onSuccess: () => {
           toast.success('Permission deleted successfully');
           fetchPermissions(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
@@ -213,49 +238,73 @@ export default function PermissionsCRUDPage() {
         header: 'Code',
         accessorKey: 'code',
         cell: ({ getValue }) => (
-          <code className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-custom rounded-md text-red-500">
+          <span className="text-sm text-slate-700 dark:text-slate-300">
             {getValue() as string}
-          </code>
+          </span>
         ),
       },
       {
         header: 'Status',
         accessorKey: 'is_active',
-        cell: ({ row }) => (
-          <CustomSwitch
-            name={`status-${row.original.id}`}
-            checked={row.original.is_active}
-            onChange={(e) => {
-              const newVal = e.target.checked;
-              dispatch(
-                updatePermission({
-                  id: row.original.id,
-                  data: { is_active: newVal },
-                  onSuccess: () => {
-                    toast.success('Permission status updated successfully');
-                    fetchPermissions(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
-                    dispatch(checkAuthStart());
-                  },
-                  onFailure: (err: any) => {
-                    toast.error(err.message || 'Failed to update status');
-                  },
-                })
-              );
-            }}
-          />
-        ),
+        cell: ({ row }) => {
+          const isAssigned = !!row.original.is_assigned;
+          const isDeactivateDisabled = row.original.is_active && isAssigned;
+          const switchTitle = isDeactivateDisabled
+            ? 'Cannot deactivate permission assigned to a role or module'
+            : undefined;
+
+          return (
+            <CustomSwitch
+              name={`status-${row.original.id}`}
+              checked={row.original.is_active}
+              disabled={isDeactivateDisabled}
+              title={switchTitle}
+              onChange={(e) => {
+                const newVal = e.target.checked;
+                if (!newVal && isAssigned) {
+                  toast.error(
+                    `Cannot deactivate permission '${row.original.name}' because it is assigned to a role or module.`
+                  );
+                  return;
+                }
+                dispatch(
+                  updatePermission({
+                    id: row.original.id,
+                    data: { is_active: newVal },
+                    onSuccess: () => {
+                      toast.success('Permission status updated successfully');
+                      fetchPermissions(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
+                      dispatch(checkAuthStart());
+                    },
+                    onFailure: (err: any) => {
+                      toast.error(err.message || 'Failed to update status');
+                    },
+                  })
+                );
+              }}
+            />
+          );
+        },
       },
       {
         header: () => <div className="text-right">Actions</div>,
         id: 'actions',
-        cell: ({ row }) => (
-          <TableRowActions
-            onEdit={() => handleOpenEdit(row.original)}
-            onDelete={() => handleDelete(row.original.id)}
-            editTitle="Edit Permission"
-            deleteTitle="Delete Permission"
-          />
-        ),
+        cell: ({ row }) => {
+          const isAssigned = !!row.original.is_assigned;
+          return (
+            <TableRowActions
+              onEdit={() => handleOpenEdit(row.original)}
+              onDelete={() => handleDelete(row.original)}
+              deleteDisabled={isAssigned}
+              deleteTitle={
+                isAssigned
+                  ? 'Cannot delete permission assigned to a role or module'
+                  : 'Delete Permission'
+              }
+              editTitle="Edit Permission"
+            />
+          );
+        },
       },
     ],
     [dispatch, fetchPermissions, pagination, searchQuery, statusFilter]

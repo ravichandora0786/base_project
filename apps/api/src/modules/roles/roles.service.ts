@@ -68,6 +68,11 @@ export class RolesService {
           skip,
           take,
           orderBy: { created_at: 'desc' },
+          include: {
+            _count: {
+              select: { users: true },
+            },
+          },
         }),
         this.prisma.role.count({ where }),
       ]);
@@ -84,12 +89,22 @@ export class RolesService {
     return this.prisma.role.findMany({
       where,
       orderBy: { created_at: 'desc' },
+      include: {
+        _count: {
+          select: { users: true },
+        },
+      },
     });
   }
 
   async findOne(id: string) {
     const role = await this.prisma.role.findUnique({
       where: { id },
+      include: {
+        _count: {
+          select: { users: true },
+        },
+      },
     });
     if (!role) throw new NotFoundException('Role not found');
     return role;
@@ -97,27 +112,28 @@ export class RolesService {
 
   async update(id: string, dto: UpdateRoleDto) {
     const role = await this.findOne(id);
+    if (dto.name && dto.name.trim().toLowerCase() !== role.name.toLowerCase()) {
+      throw new ConflictException('Role name cannot be edited');
+    }
     if (role.name.toLowerCase() === 'admin') {
       if (dto.is_active === false) {
         throw new ConflictException('Admin role cannot be deactivated');
       }
-      if (dto.name && dto.name.toLowerCase() !== 'admin') {
-        throw new ConflictException('Admin role cannot be renamed');
-      }
     }
-    if (dto.name) {
-      const existing = await this.prisma.role.findFirst({
-        where: { name: dto.name.toLowerCase(), NOT: { id } },
+    if (dto.is_active === false) {
+      const assignedUsersCount = await this.prisma.user.count({
+        where: { role_id: id },
       });
-      if (existing) {
-        throw new ConflictException('Role name already taken');
+      if (assignedUsersCount > 0) {
+        throw new ConflictException(
+          `Cannot deactivate role '${role.name}' because it is assigned to ${assignedUsersCount} user(s).`,
+        );
       }
     }
     return this.prisma.role.update({
       where: { id },
       data: {
-        ...dto,
-        name: dto.name ? dto.name.toLowerCase() : undefined,
+        is_active: dto.is_active !== undefined ? dto.is_active : role.is_active,
       },
     });
   }
@@ -126,6 +142,14 @@ export class RolesService {
     const role = await this.findOne(id);
     if (role.name.toLowerCase() === 'admin') {
       throw new ConflictException('Admin role cannot be deleted');
+    }
+    const assignedUsersCount = await this.prisma.user.count({
+      where: { role_id: id },
+    });
+    if (assignedUsersCount > 0) {
+      throw new ConflictException(
+        `Cannot delete role '${role.name}' because it is assigned to ${assignedUsersCount} user(s).`,
+      );
     }
     return this.prisma.role.delete({
       where: { id },

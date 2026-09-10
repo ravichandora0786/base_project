@@ -1,4 +1,4 @@
-import { IsString, IsBoolean, IsOptional, IsInt } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, IsInt, Matches } from 'class-validator';
 
 export class UpdateAppModuleDto {
   @IsString()
@@ -7,6 +7,7 @@ export class UpdateAppModuleDto {
 
   @IsString()
   @IsOptional()
+  @Matches(/^[a-zA-Z\s]+$/, { message: 'Display name can only contain alphabets and spaces' })
   display_name?: string;
 
   @IsBoolean()

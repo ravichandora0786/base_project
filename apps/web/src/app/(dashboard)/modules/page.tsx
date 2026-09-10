@@ -36,43 +36,12 @@ import {
   deleteModule,
 } from './store/slice';
 
-const moduleFields = [
-  {
-    name: 'name',
-    label: 'Module Key',
-    type: 'text',
-    required: true,
-  },
-  {
-    name: 'display_name',
-    label: 'Display Name',
-    type: 'text',
-    required: true,
-  },
-  {
-    name: 'route',
-    label: 'Route Path',
-    type: 'text',
-    required: false,
-  },
-  {
-    name: 'sort_order',
-    label: 'Sort Order',
-    type: 'number',
-    required: true,
-  },
-  {
-    name: 'is_active',
-    label: 'Status Active',
-    type: 'toggle',
-    required: false,
-  },
-];
-
 const validationSchema = Yup.object().shape({
+  display_name: Yup.string()
+    .matches(/^[A-Za-z\s]+$/, 'Display name can only contain alphabets and spaces')
+    .required('Display name is required'),
   name: Yup.string().required('Module key is required'),
-  display_name: Yup.string().required('Display name is required'),
-  sort_order: Yup.number().required('Sort order is required').min(0),
+  sort_order: Yup.number().required('Sort order is required'),
 });
 
 export default function ModulesCRUDPage() {
@@ -98,6 +67,81 @@ export default function ModulesCRUDPage() {
     if (typeof modulesData?.pagination?.totalItems === 'number') return modulesData.pagination.totalItems;
     return modulesArray.length;
   }, [modulesData, modulesArray]);
+
+  const nextSortOrder = React.useMemo(() => {
+    if (!modulesArray.length) return 0;
+    const maxOrder = Math.max(
+      ...modulesArray.map((m) => (typeof m.sort_order === 'number' ? m.sort_order : -1))
+    );
+    return maxOrder >= 0 ? maxOrder + 1 : 0;
+  }, [modulesArray]);
+
+  const moduleFields = React.useMemo(
+    () => [
+      {
+        name: 'display_name',
+        label: 'Display Name',
+        type: 'text',
+        required: true,
+        placeholder: 'Enter Display Name',
+        onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (
+            ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Escape'].includes(e.key) ||
+            e.ctrlKey ||
+            e.metaKey
+          ) {
+            return;
+          }
+          if (!/^[a-zA-Z\s]$/.test(e.key)) {
+            e.preventDefault();
+          }
+        },
+        onChange: (e: React.ChangeEvent<HTMLInputElement>, setFieldValue: any, values: any) => {
+          const lettersOnly = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+          setFieldValue('display_name', lettersOnly);
+          const autoKey = lettersOnly
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z\s_]/g, '')
+            .replace(/\s+/g, '_');
+          setFieldValue('name', autoKey);
+          if (!editingModule && (!values.route || values.route === `/${values.name?.replace(/_/g, '-')}`)) {
+            setFieldValue('route', autoKey ? `/${autoKey.replace(/_/g, '-')}` : '');
+          }
+        },
+      },
+      {
+        name: 'name',
+        label: 'Module Key',
+        type: 'text',
+        required: true,
+        disabled: true,
+        placeholder: 'Generated automatically from Display Name',
+      },
+      {
+        name: 'route',
+        label: 'Route Path',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g. /dashboard',
+      },
+      {
+        name: 'sort_order',
+        label: 'Sort Order',
+        type: 'number',
+        required: true,
+        disabled: true,
+        placeholder: 'Auto-assigned',
+      },
+      {
+        name: 'is_active',
+        label: 'Status Active',
+        type: 'toggle',
+        required: false,
+      },
+    ],
+    [editingModule]
+  );
 
   const fetchModules = React.useCallback(
     (page: number, pageSize: number, search?: string, status?: any) => {
@@ -144,9 +188,19 @@ export default function ModulesCRUDPage() {
 
   const handleSubmit = async (values: any, { setSubmitting }: any) => {
     try {
+      const cleanDisplayName = values.display_name.trim().replace(/[^a-zA-Z\s]/g, '');
+      const autoKey = (values.name || cleanDisplayName)
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z\s_]/g, '')
+        .replace(/\s+/g, '_');
+
       const payload = {
-        ...values,
-        sort_order: Number(values.sort_order),
+        name: autoKey,
+        display_name: cleanDisplayName,
+        route: values.route?.trim() || `/${autoKey.replace(/_/g, '-')}`,
+        sort_order: Number(values.sort_order ?? nextSortOrder),
+        is_active: values.is_active,
       };
 
       if (editingModule) {
@@ -188,10 +242,18 @@ export default function ModulesCRUDPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (mod: AppModule) => {
+    const isSystemModule = ['dashboard', 'user', 'role', 'permission', 'module'].includes(
+      mod.name.toLowerCase()
+    );
+    if (isSystemModule) {
+      toast.error('System modules cannot be deleted');
+      return;
+    }
+
     const isConfirmed = await confirm({
       title: 'Delete App Module?',
-      message: 'Are you sure you want to delete this module? This action cannot be undone.',
+      message: `Are you sure you want to delete module '${mod.display_name || mod.name}'? All assigned role permissions for this module will also be permanently deleted.`,
       confirmText: 'Delete',
       cancelText: 'Cancel',
       variant: 'danger',
@@ -200,9 +262,9 @@ export default function ModulesCRUDPage() {
 
     dispatch(
       deleteModule({
-        id,
+        id: mod.id,
         onSuccess: () => {
-          toast.success('Module deleted successfully');
+          toast.success('Module and associated permissions deleted successfully');
           fetchModules(pagination?.pageIndex ? pagination.pageIndex + 1 : 1, pagination?.pageSize || 10, searchQuery, statusFilter);
           dispatch(checkAuthStart());
         },
@@ -266,14 +328,19 @@ export default function ModulesCRUDPage() {
       {
         header: () => <div className="text-right">Actions</div>,
         id: 'actions',
-        cell: ({ row }) => (
-          <TableRowActions
-            onEdit={() => handleOpenEdit(row.original)}
-            onDelete={() => handleDelete(row.original.id)}
-            editTitle="Edit Module"
-            deleteTitle="Delete Module"
-          />
-        ),
+        cell: ({ row }) => {
+          const isSystemModule = ['dashboard', 'user', 'role', 'permission', 'module'].includes(
+            row.original.name.toLowerCase()
+          );
+          return (
+            <TableRowActions
+              onEdit={() => handleOpenEdit(row.original)}
+              onDelete={isSystemModule ? undefined : () => handleDelete(row.original)}
+              editTitle="Edit Module"
+              deleteTitle={isSystemModule ? undefined : 'Delete Module'}
+            />
+          );
+        },
       },
     ],
     [dispatch, fetchModules, pagination, searchQuery, statusFilter]
@@ -342,7 +409,7 @@ export default function ModulesCRUDPage() {
               name: editingModule ? editingModule.name : '',
               display_name: editingModule ? editingModule.display_name : '',
               route: editingModule ? (editingModule.route || '') : '',
-              sort_order: editingModule ? editingModule.sort_order : 0,
+              sort_order: editingModule ? (editingModule.sort_order ?? 0) : nextSortOrder,
               is_active: editingModule ? editingModule.is_active : true,
             }}
             validationSchema={validationSchema}

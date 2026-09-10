@@ -56,7 +56,7 @@ export default function RolePermissionsClient() {
       setRole(roleRes.data);
       
       const allModulesRaw = Array.isArray(modulesRes.data) ? modulesRes.data : (modulesRes.data?.data || []);
-      const allModules: AppModule[] = allModulesRaw.filter((m: any) => m.is_active);
+      const allModules: AppModule[] = allModulesRaw;
       setModules(allModules);
 
       const allPermissionsRaw = Array.isArray(permissionsRes.data) ? permissionsRes.data : (permissionsRes.data?.data || []);
@@ -75,10 +75,19 @@ export default function RolePermissionsClient() {
       setMappings(roleMappings);
 
       // Initialize selected permissions map
+      const isRoleAdmin = roleRes.data?.name?.toLowerCase() === 'admin';
       const initialSelection: Record<string, string[]> = {};
       allModules.forEach((m: AppModule) => {
         const matchedMapping = roleMappings.find((map) => map.module_id === m.id);
-        initialSelection[m.id] = matchedMapping ? matchedMapping.permission_ids : [];
+        if (isRoleAdmin) {
+          // For Admin role: auto-tick all permissions for every module!
+          initialSelection[m.id] =
+            matchedMapping && matchedMapping.permission_ids?.length > 0
+              ? matchedMapping.permission_ids
+              : allPermissions.map((p) => p.id);
+        } else {
+          initialSelection[m.id] = matchedMapping ? matchedMapping.permission_ids : [];
+        }
       });
       setSelectedPermissions(initialSelection);
 
@@ -265,7 +274,14 @@ export default function RolePermissionsClient() {
                 return (
                   <tr key={m.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition">
                     <td className="p-4 font-bold text-gray-800 dark:text-white capitalize">
-                      {m.display_name}
+                      <div className="flex items-center gap-2">
+                        <span>{m.display_name}</span>
+                        {!m.is_active && (
+                          <span className="text-[10px] bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-md font-medium border border-red-200 dark:border-red-900/50">
+                            Inactive
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4 text-center">
                       <input

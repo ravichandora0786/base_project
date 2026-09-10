@@ -1,8 +1,9 @@
-import { IsNotEmpty, IsString, IsBoolean, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsBoolean, IsOptional, Matches } from 'class-validator';
 
 export class CreatePermissionDto {
   @IsString()
   @IsNotEmpty({ message: 'Permission name is required' })
+  @Matches(/^[a-zA-Z\s]+$/, { message: 'Permission name can only contain alphabets and spaces' })
   name: string;
 
   @IsString()

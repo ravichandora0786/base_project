@@ -5,17 +5,21 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { ModuleActiveGuard } from '../../common/guards/module-active.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { ModuleKey, BypassModuleActive } from '../../common/decorators/module-key.decorator';
 import { RoleEnum } from '../../common/constants/enums';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ModuleActiveGuard)
+@ModuleKey('user')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @BypassModuleActive()
   @Get('me')
   async getProfile(@CurrentUser('id') userId: string) {
     return this.usersService.findById(userId);
@@ -112,5 +116,11 @@ export class UsersController {
     }
     const profileImageUrl = `http://localhost:${process.env.PORT || 4000}/uploads/${file.filename}`;
     return this.usersService.update(id, { profile_image: profileImageUrl }, true);
+  }
+
+  @Roles(RoleEnum.ADMIN)
+  @Delete(':id/profile-image')
+  async deleteProfileImage(@Param('id') id: string) {
+    return this.usersService.deleteProfileImage(id);
   }
 }

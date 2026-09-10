@@ -3,7 +3,9 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAppSelector } from '@/store';
+import { useAppSelector, useAppDispatch } from '@/store';
+import { checkAuthStart } from '@/features/auth/store/auth.slice';
+import { getSocket } from '@/lib/socket';
 import {
   Sidebar as ProSidebar,
   Menu,
@@ -18,6 +20,8 @@ interface MenuItemType {
   label: string;
   path: string;
   icon: React.ReactNode;
+  sort_order?: number;
+  is_active?: boolean;
 }
 
 interface SidebarProps {
@@ -56,15 +60,21 @@ export function DynamicSidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state?.auth || {}) as any;
   const [menuItems, setMenuItems] = React.useState<MenuItemType[]>([]);
   const [mounted, setMounted] = React.useState(false);
 
+  const isAdmin = user?.role?.name?.toLowerCase() === 'admin';
+
   const fetchSidebarModules = async () => {
     try {
       const response = await apiClient.get('/modules');
-      const activeModules = response.data.filter((m: any) => m.is_active);
-      const items: MenuItemType[] = activeModules.map((m: any) => {
+      const rawList = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+      
+      // Admin sees all modules (active and inactive); non-admin only sees active modules
+      const visibleModules = isAdmin ? rawList : rawList.filter((m: any) => m.is_active === true);
+      const items: MenuItemType[] = visibleModules.map((m: any) => {
         const IconComponent = (Icons as any)[m.icon || 'FiFolder'] || Icons.FiFolder;
         return {
           name: m.name,
@@ -72,9 +82,10 @@ export function DynamicSidebar({
           path: m.route || `/${m.name}`,
           icon: <IconComponent className="w-5 h-5" />,
           sort_order: m.sort_order ?? 99,
+          is_active: m.is_active,
         };
       });
-      items.sort((a, b) => (a as any).sort_order - (b as any).sort_order);
+      items.sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99));
       setMenuItems(items);
     } catch (err) {
       console.error('Failed to load sidebar modules', err);
@@ -84,7 +95,17 @@ export function DynamicSidebar({
   React.useEffect(() => {
     setMounted(true);
     fetchSidebarModules();
-  }, [user]);
+
+    const socket = getSocket();
+    const handleRemoteUpdate = () => {
+      fetchSidebarModules();
+      dispatch(checkAuthStart());
+    };
+    socket.on('permissions_updated', handleRemoteUpdate);
+    return () => {
+      socket.off('permissions_updated', handleRemoteUpdate);
+    };
+  }, [user, dispatch, isAdmin]);
 
   // Close mobile sidebar on Escape key
   React.useEffect(() => {
@@ -102,7 +123,7 @@ export function DynamicSidebar({
     if (!user || !user.role) return false;
     
     // Admin has super powers and sees everything
-    if (user.role.name === 'admin') return true;
+    if (user.role.name?.toLowerCase() === 'admin') return true;
 
     // Check if user's permissions object has this module
     const userPermissions = user.permissions || {};
@@ -223,7 +244,7 @@ export function DynamicSidebar({
                     active={isActive}
                     component={<Link href={item.path} onClick={() => onCloseMobile?.()} />}
                   >
-                    <span className="font-semibold text-sm">{item.label}</span>
+                      <span className="font-semibold text-sm">{item.label}</span>
                   </MenuItem>
                 );
               })}
