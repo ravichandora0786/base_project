@@ -239,7 +239,7 @@ export default function RolesCRUDPage() {
               extraActions={
                 <LoadingButton
                   variant="custom"
-                  onClick={() => router.push(`/roles/${row.original.id}/permissions`)}
+                  onClick={() => router.push(`/roles/permissions?id=${row.original.id}`)}
                   className="w-8 h-8 rounded-lg text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/40 transition inline-flex items-center justify-center shadow-2xs"
                   aria-label="Edit Role Permissions"
                   title="Manage Permissions"

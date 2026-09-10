@@ -1,11 +1,9 @@
+'use client';
+
 import React, { Suspense } from 'react';
-import RolePermissionsClient from './RolePermissionsClient';
+import RolePermissionsClient from '../[id]/permissions/RolePermissionsClient';
 
-export function generateStaticParams() {
-  return [{ id: '1' }];
-}
-
-export default function EditRolePermissionsPage() {
+export default function RolePermissionsPage() {
   return (
     <Suspense
       fallback={

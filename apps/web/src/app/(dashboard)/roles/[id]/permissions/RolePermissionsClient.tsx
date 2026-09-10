@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
 import { toast } from 'react-toastify';
 import LoadingButton from '@/components/ui/loadingButton';
@@ -20,9 +20,10 @@ interface RolePermissionMapping {
 
 export default function RolePermissionsClient() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const roleId = params?.id as string;
+  const roleId = (params?.id as string) || searchParams.get('id') || searchParams.get('roleId') || '';
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [role, setRole] = useState<Role | null>(null);
@@ -193,7 +194,11 @@ export default function RolePermissionsClient() {
               value={currentRoleOption}
               onChange={(opt) => {
                 if (opt && opt.value !== roleId) {
-                  router.push(`/roles/${opt.value}/permissions`);
+                  if (params?.id) {
+                    router.push(`/roles/${opt.value}/permissions`);
+                  } else {
+                    router.push(`/roles/permissions?id=${opt.value}`);
+                  }
                 }
               }}
               isSearchable={false}

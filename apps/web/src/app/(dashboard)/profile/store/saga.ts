@@ -20,7 +20,8 @@ function* getProfileSaga(action: any): Generator<any, any, any> {
   const { id, onSuccess, onFailure } = action.payload || {};
   try {
     yield put(setGlobalLoading(true));
-    const response = yield call(apiClient.get, `/users/${id}`);
+    const endpoint = id ? `/users/${id}` : '/users/me';
+    const response = yield call(apiClient.get, endpoint);
     yield put(setProfile(response.data));
     if (onSuccess) yield onSuccess({ message: response?.statusText, data: response?.data });
   } catch (err: any) {
@@ -69,7 +70,7 @@ function* uploadProfileImageSaga(action: any): Generator<any, any, any> {
     yield put(setImgUploading(true));
     const formData = new FormData();
     formData.append("profile_image", file);
-    const response = yield call(apiClient.patch, `/users/${id}/profile-image`, formData, {
+    const response = yield call(apiClient.patch, "/auth/profile-image", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     yield put(setProfile(response.data));

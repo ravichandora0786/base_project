@@ -253,10 +253,8 @@ export default function ProfilePage() {
   ];
 
   useEffect(() => {
-    if (authUser?.id) {
-      dispatch(getProfile({ id: authUser.id }));
-    }
-  }, [authUser?.id, dispatch]);
+    dispatch(getProfile({}));
+  }, [dispatch]);
 
   // -- Save Personal Info ----------------------------------------------------
   const handleSavePersonal = (values: any, { setSubmitting }: any) => {
@@ -271,7 +269,7 @@ export default function ProfilePage() {
         onSuccess: () => {
           toast.success('Personal info updated');
           dispatch(setEditingPersonal(false));
-          dispatch(getProfile({ id: profile.id }));
+          dispatch(getProfile({}));
           dispatch(checkAuthStart());
         },
         onFailure: (err: any) => {
@@ -299,7 +297,7 @@ export default function ProfilePage() {
         onSuccess: () => {
           toast.success('Address updated');
           dispatch(setEditingAddress(false));
-          dispatch(getProfile({ id: profile.id }));
+          dispatch(getProfile({}));
         },
         onFailure: (err: any) => {
           toast.error(err.message || 'Failed to update address');
@@ -348,7 +346,7 @@ export default function ProfilePage() {
           dispatch(setImgModalOpen(false));
           dispatch(setImgPreview(null));
           dispatch(setImgFile(null));
-          dispatch(getProfile({ id: profile.id }));
+          dispatch(getProfile({}));
           dispatch(checkAuthStart());
         },
       })
@@ -359,14 +357,6 @@ export default function ProfilePage() {
     { key: 'profile', label: 'My Profile', icon: <FiEdit2 className="w-4 h-4" /> },
     { key: 'password', label: 'Change Password', icon: <FiLock className="w-4 h-4" /> },
   ];
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-[calc(100vh-200px)]">
-        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
 
   const addrData: AddressData = profile?.address || {};
 
@@ -402,9 +392,10 @@ export default function ProfilePage() {
       {/* -- Right Content -- */}
       <div className="flex-1 min-w-0 overflow-auto space-y-5">
         {/* --- MY PROFILE --- */}
-        {activeTab === 'profile' && profile && (
-          <>
-            {/* -- Profile Header Card -- */}
+        {activeTab === 'profile' && (
+          profile ? (
+            <>
+              {/* -- Profile Header Card -- */}
             <SectionCard>
               <div className="flex items-center justify-between p-6">
                 <div className="flex items-center gap-5">
@@ -581,7 +572,19 @@ export default function ProfilePage() {
               )}
             </SectionCard>
           </>
-        )}
+        ) : !loading ? (
+          <SectionCard>
+            <div className="p-8 text-center text-custom-muted">
+              <p className="text-sm">Unable to load profile data.</p>
+              <button
+                onClick={() => dispatch(getProfile({}))}
+                className="mt-3 px-4 py-2 text-xs font-semibold bg-custom-primary text-white rounded-xl hover:opacity-90 transition"
+              >
+                Retry
+              </button>
+            </div>
+          </SectionCard>
+        ) : null)}
 
         {/* --- CHANGE PASSWORD --- */}
         {activeTab === 'password' && (
